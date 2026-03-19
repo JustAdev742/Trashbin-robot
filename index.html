@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Smart Bin Dashboard</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #1a1a1a; color: white; text-align: center; }
+        .status-card { border: 2px solid #00ff88; padding: 20px; border-radius: 15px; display: inline-block; margin-top: 50px; }
+        .btn { padding: 10px 20px; background: #00ff88; border: none; cursor: pointer; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🗑️ AI Smart Bin</h1>
+    <button class="btn" onclick="connect()">Connect to Bin</button>
+    <button class="btn" onclick="startListening()">🎤 Talk to Bin</button>
+
+    <div class="status-card">
+        <h3>Bin Status: <span id="stat">Disconnected</span></h3>
+        <h3>Fill Level: <span id="fill">0</span>%</h3>
+    </div>
+
+    <script>
+        let bluetoothDevice;
+        let uartCharacteristic;
+
+        async function connect() {
+            // Web Bluetooth connection logic
+            bluetoothDevice = await navigator.bluetooth.requestDevice({
+                filters: [{ namePrefix: 'BBC micro:bit' }],
+                optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e'] // UART Service
+            });
+            const server = await bluetoothDevice.gatt.connect();
+            const service = await server.getPrimaryService('6e400001-b5a3-f393-e0a9-e50e24dcca9e');
+            uartCharacteristic = await service.getCharacteristic('6e400002-b5a3-f393-e0a9-e50e24dcca9e');
+            document.getElementById('stat').innerText = "Connected";
+        }
+
+        // Voice AI logic
+        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        function startListening() {
+            recognition.start();
+        }
+
+        recognition.onresult = (event) => {
+            const command = event.results[0][0].transcript.toLowerCase();
+            console.log("You said:", command);
+
+            if (command.includes("how full")) {
+                speak("The bin is currently at " + document.getElementById('fill').innerText + " percent");
+            } 
+            if (command.includes("go to front") || command.includes("drive")) {
+                speak("Moving to the yard for pickup");
+                sendCommand("forward");
+                setTimeout(() => sendCommand("stop"), 5000); // Drives for 5 seconds
+            }
+        };
+
+        async function sendCommand(cmd) {
+            if (uartCharacteristic) {
+                let encoder = new TextEncoder();
+                await uartCharacteristic.writeValue(encoder.encode(cmd + "\n"));
+            }
+        }
+
+        function speak(text) {
+            const msg = new SpeechSynthesisUtterance(text);
+            window.speechSynthesis.speak(msg);
+        }
+    </script>
+</body>
+</html>
