@@ -1,70 +1,104 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>AI Smart Bin Dashboard</title>
+    <meta charset="UTF-8">
+    <title>Cyber-Bin AI Dashboard</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #1a1a1a; color: white; text-align: center; }
-        .status-card { border: 2px solid #00ff88; padding: 20px; border-radius: 15px; display: inline-block; margin-top: 50px; }
-        .btn { padding: 10px 20px; background: #00ff88; border: none; cursor: pointer; border-radius: 5px; }
+        :root { --neon: #00ff88; --bg: #0a0a0c; }
+        body { background: var(--bg); color: white; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .dashboard { border: 2px solid var(--neon); padding: 30px; border-radius: 20px; box-shadow: 0 0 20px var(--neon); width: 80%; max-width: 600px; }
+        #chat-box { height: 200px; overflow-y: auto; border: 1px solid #333; margin: 20px 0; padding: 10px; background: #111; }
+        input { background: #222; border: 1px solid var(--neon); color: white; padding: 10px; width: 70%; }
+        .btn { background: var(--neon); color: black; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; }
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
     </style>
 </head>
 <body>
-    <h1>🗑️ AI Smart Bin</h1>
-    <button class="btn" onclick="connect()">Connect to Bin</button>
-    <button class="btn" onclick="startListening()">🎤 Talk to Bin</button>
+    <h1>🤖 CYBER-BIN v1.0</h1>
+    <div class="dashboard">
+        <div class="stat-grid">
+            <div>STATUS: <span id="status">OFFLINE</span></div>
+            <div>FILL LEVEL: <span id="fill">0</span>%</div>
+        </div>
+        
+        <button class="btn" onclick="connectBT()">🔌 CONNECT ROBOT</button>
+        <button class="btn" onclick="startVoice()">🎤 TALK TO AI</button>
 
-    <div class="status-card">
-        <h3>Bin Status: <span id="stat">Disconnected</span></h3>
-        <h3>Fill Level: <span id="fill">0</span>%</h3>
+        <div id="chat-box">System Initialized... Waiting for connection.</div>
+        
+        <div style="display:flex; gap:10px;">
+            <input type="text" id="userInput" placeholder="Type a command (e.g. 'Go park')">
+            <button class="btn" onclick="handleInput()">SEND</button>
+        </div>
     </div>
 
     <script>
-        let bluetoothDevice;
-        let uartCharacteristic;
+        let uart;
+        const chat = document.getElementById('chat-box');
 
-        async function connect() {
-            // Web Bluetooth connection logic
-            bluetoothDevice = await navigator.bluetooth.requestDevice({
-                filters: [{ namePrefix: 'BBC micro:bit' }],
-                optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e'] // UART Service
-            });
-            const server = await bluetoothDevice.gatt.connect();
-            const service = await server.getPrimaryService('6e400001-b5a3-f393-e0a9-e50e24dcca9e');
-            uartCharacteristic = await service.getCharacteristic('6e400002-b5a3-f393-e0a9-e50e24dcca9e');
-            document.getElementById('stat').innerText = "Connected";
+        // 1. Bluetooth Connection
+        async function connectBT() {
+            try {
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [{ namePrefix: 'BBC micro:bit' }],
+                    optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e']
+                });
+                const server = await device.gatt.connect();
+                const service = await server.getPrimaryService('6e400001-b5a3-f393-e0a9-e50e24dcca9e');
+                uart = await service.getCharacteristic('6e400002-b5a3-f393-e0a9-e50e24dcca9e');
+                document.getElementById('status').innerText = "CONNECTED";
+                log("Robot Connected. AI Brain Active.");
+            } catch (e) { console.error(e); }
         }
 
-        // Voice AI logic
-        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-        function startListening() {
+        // 2. The AI Brain (Intent Parser)
+        function processAI(text) {
+            text = text.toLowerCase();
+            log("You: " + text);
+
+            if (text.includes("how full")) {
+                let level = document.getElementById('fill').innerText;
+                speak("The bin is " + level + " percent full.");
+            } 
+            else if (text.includes("park") || text.includes("go to front")) {
+                speak("Understood. Navigating to the yard for pickup.");
+                sendCmd("PARK");
+            }
+            else if (text.includes("open")) {
+                speak("Opening the lid for you.");
+                sendCmd("OPEN");
+            }
+            else {
+                speak("I am not sure about that. I can park, check my fill level, or open my lid.");
+            }
+        }
+
+        // 3. Talk & Type Logic
+        function startVoice() {
+            const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.onresult = (e) => processAI(e.results[0][0].transcript);
             recognition.start();
         }
 
-        recognition.onresult = (event) => {
-            const command = event.results[0][0].transcript.toLowerCase();
-            console.log("You said:", command);
+        function handleInput() {
+            const val = document.getElementById('userInput').value;
+            processAI(val);
+            document.getElementById('userInput').value = "";
+        }
 
-            if (command.includes("how full")) {
-                speak("The bin is currently at " + document.getElementById('fill').innerText + " percent");
-            } 
-            if (command.includes("go to front") || command.includes("drive")) {
-                speak("Moving to the yard for pickup");
-                sendCommand("forward");
-                setTimeout(() => sendCommand("stop"), 5000); // Drives for 5 seconds
-            }
-        };
-
-        async function sendCommand(cmd) {
-            if (uartCharacteristic) {
-                let encoder = new TextEncoder();
-                await uartCharacteristic.writeValue(encoder.encode(cmd + "\n"));
+        async function sendCmd(msg) {
+            if (uart) {
+                const encoder = new TextEncoder();
+                await uart.writeValue(encoder.encode(msg + "\n"));
             }
         }
 
-        function speak(text) {
-            const msg = new SpeechSynthesisUtterance(text);
-            window.speechSynthesis.speak(msg);
+        function speak(t) {
+            log("AI: " + t);
+            window.speechSynthesis.speak(new SpeechSynthesisUtterance(t));
         }
+
+        function log(m) { chat.innerHTML += `<div>> ${m}</div>`; chat.scrollTop = chat.scrollHeight; }
     </script>
 </body>
 </html>
