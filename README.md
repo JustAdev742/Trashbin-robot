@@ -86,11 +86,11 @@ One deliberate difference from a literal reading of the chart: the flowchart re-
 
 | Buttons | |
 |---|---|
-| **A** | "Done": sunscreen is on / I am going inside. Also wakes from standby. While the device is waiting between checks, A shows the UV index and the sunscreen countdown |
+| **A** | "Done": sunscreen is on / I am going inside. Also wakes from standby, skips the rest of a message scrolling across the LEDs, and while the device is waiting between checks shows the UV index and the sunscreen countdown |
 | **B** | Wakes from standby. Hold B while switching on for **demo mode** (10 s waits, 1 minute sunscreen timer) |
 | **A + B** | Device turns off / on. Bluetooth stays up so the app can turn it on again |
 
-Without an OLED, messages scroll across the LEDs. With one, the screen shows the UV number large, the band, the current message, and a countdown to the next check and the next sunscreen.
+Without an OLED, messages scroll across the LEDs one word at a time (press A to skip the rest). With one, the screen shows the UV number large, the band, the current message, and a countdown to the next check and the next sunscreen.
 
 ## 5. Bluetooth / serial protocol (for the app or website)
 
@@ -141,6 +141,6 @@ Leave P1 unconnected: the reading is noisy, so you will see the **CHECK SENSOR**
 
 ## 8. What changed
 
-**3.1** — nothing runs on after A+B turns the device off mid-alert (the status line used to say `wait`); a bad `uv=` value is rejected instead of turning into an "extreme" alert; one `ev=error` per sensor problem instead of one every retry; A while waiting shows the UV index and countdown; the repository can be imported straight from GitHub.
+**3.1** — nothing runs on after A+B turns the device off mid-alert (the status line used to say `wait`); a bad `uv=` value is rejected instead of turning into an "extreme" alert; one `ev=error` per sensor problem instead of one every retry; A while waiting shows the UV index and countdown, and A skips a scrolling LED message; `ev=inside` is only sent when A was really pressed; the repository can be imported straight from GitHub.
 
 **3.0** — rewritten around the flowchart (one function per box, in order), Blocks view laid out in labelled sections, alerts only when sunscreen is not already on, numeric settings so everything is visible in `on start`, modern play-tone block.

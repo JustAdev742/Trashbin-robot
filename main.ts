@@ -83,6 +83,7 @@ let btConnected = false
 let oledPresent = false
 let debugMode = false
 let sensorErrorReported = false
+let skipMessage = false
 let uvZeroVolts = 0
 let uvVoltsPerIndex = 0
 let waitMs = 0
@@ -275,12 +276,15 @@ function veryHighUv() {
 
 // Branch 11+ extreme: Tap the arm until A is pressed (max 2 min, then beep
 // instead), show go inside now, then standby until any button is pressed.
+// The app only hears ev=inside when somebody actually pressed A.
 function extremeUv() {
     stateName = "alert"
     tapArmUntilA()
     if (deviceOn) {
         showMessage("Go inside now. Sunscreen on the way")
-        sendEvent("inside")
+        if (ackPressed) {
+            sendEvent("inside")
+        }
         standbyUntilButton()
     }
 }
@@ -377,10 +381,12 @@ function deviceTurnsOff() {
 // ===== 3. BUTTONS =====
 
 // A = "done": sunscreen is on / I am going inside.  Also wakes from standby,
-// and while the device is waiting it shows the UV index and the countdown.
+// skips a message scrolling on the LEDs, and while the device is waiting it
+// shows the UV index and the countdown.
 input.onButtonPressed(Button.A, function () {
     ackPressed = true
     anyButtonPressed = true
+    skipMessage = true
 })
 
 // B = wake from standby.  (Hold B while switching on for demo timings.)
@@ -499,12 +505,19 @@ function showLedStatus() {
     }
 }
 
-// A message: on the OLED if there is one, otherwise scrolled once across the LEDs
+// A message: on the OLED if there is one, otherwise scrolled across the LEDs one
+// word at a time. Pressing A skips the rest of a long message.
 function showMessage(text: string) {
     if (oledPresent) {
         oledShowMessage(text)
     } else {
-        basic.showString(text)
+        skipMessage = false
+        let words = text.split(" ")
+        for (let word of words) {
+            if (!skipMessage && word.length > 0) {
+                basic.showString(word)
+            }
+        }
     }
 }
 
