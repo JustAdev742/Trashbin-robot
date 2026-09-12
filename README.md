@@ -59,7 +59,7 @@ Crowtail, ElecFreaks, Kitronik and similar boards route the same pins to plugs: 
 | `oledMode`, `oledType`, `oledAddress` | 0 = no screen, 1 = detect at start-up, 2 = always on; 1 = SSD1306, 2 = SH1106; 60 = 0x3C |
 | `uvLowMax`, `uvHighMax`, `uvVeryHighMax` | the flowchart bands 0–2, 3–7, 8–10, 11+ (tested on the rounded UV index) |
 | `waitMinutes`, `reapplyHours`, `tapMaxMinutes` | the flowchart timings: 5 minutes, 2 hours, 2 minutes |
-| `alertGiveUpMinutes` | how long a flash-and-beep alert carries on before giving up (so a device left on a table stops) |
+| `alertGiveUpMinutes` | how long a flash-and-beep alert carries on with no answer before the device assumes it is not being worn and goes to standby |
 | `onlineUvMaxAgeMinutes` | how long a value from the phone counts as "the phone is sending online UV" |
 
 Cheap UV sensors are only roughly calibrated. Once it is wired up, look up today's UV index on a weather site, hold the sensor in the sun and send `cal=<that number>` (see section 5 of this file); the scale corrects itself. Send `zero` in the dark first if the reading is not 0 indoors. Calibration lives in RAM, so put the corrected numbers into `applySensorPreset` to make them permanent.
@@ -75,9 +75,9 @@ Cheap UV sensors are only roughly calibrated. Once it is wired up, look up today
 | Sensor reading in range? | No: cross on the LEDs, **CHECK SENSOR**, two beeps, retry in 5 s. A bad sensor is never treated as "safe" |
 | Phone connected and sending online UV? | Yes while a `uv=` line arrived in the last 30 minutes: UV = the higher of sensor and online. Otherwise UV = sensor |
 | 0–2 low | Happy face |
-| 3–7 moderate / high | Flash and slow beep until **A**, then "1 tsp SPF 50+ on each arm, each leg, front, back and face", then the 2 hour timer starts |
+| 3–7 moderate / high | Flash and slow beep until **A**, then "1 tsp SPF 50+ on each arm, each leg, front, back and face", then the 2 hour timer starts. No **A** within 10 minutes means standby until a button is pressed |
 | 8–10 very high | Flash and fast beep until **A**, the same sunscreen advice plus hat and shade, then the 2 hour timer starts |
-| 11+ extreme | The servo taps the arm until **A** (after 2 minutes it beeps instead), then "Go inside now. Sunscreen on the way", then standby until any button is pressed |
+| 11+ extreme | The servo taps the arm until **A** (after 2 minutes it beeps instead), then "Go inside now. Sunscreen on the way", then standby until any button is pressed. After standby the device reads the sensor straight away instead of waiting 5 minutes |
 | Wait 5 minutes | Then back to the top. Press **A** meanwhile to see the UV index and the time until reapply on the LEDs |
 | A and B held? | A+B turns the device off at any moment. A+B again turns it on |
 | Reapply timer expired? | "Reapply sunscreen", then the next trip round the flowchart alerts again and starts a fresh 2 hours |
@@ -99,7 +99,7 @@ The micro:bit exposes the standard **Nordic UART service** (`6E400001-B5A3-F393-
 **Device → app**, every 2 seconds:
 
 ```
-st=wait;uv=7.3;sen=7.1;onl=6.5;band=vhigh;spf=5400;spfn=3;fw=3.1
+st=wait;uv=7.3;sen=7.1;onl=6.5;band=vhigh;spf=5400;spfn=3;fw=3.1;demo=0
 ```
 
 | Field | Meaning |
@@ -110,6 +110,7 @@ st=wait;uv=7.3;sen=7.1;onl=6.5;band=vhigh;spf=5400;spfn=3;fw=3.1
 | `band` | `low` `modhigh` `vhigh` `extreme` |
 | `spf` | seconds until sunscreen reapply is due (`-1` = no timer running) |
 | `spfn` | sunscreen applications acknowledged since power-on |
+| `fw` / `demo` | firmware version, and `1` while demo timings are on |
 
 **Device → app**, on events: `ev=on` `ev=off` `ev=sunscreen` `ev=reapply` `ev=inside` `ev=standby` `ev=error;msg=CHECK SENSOR` (once per sensor problem, not once per retry). Logging these with a timestamp is all a website needs for daily and monthly statistics.
 
@@ -141,6 +142,6 @@ Leave P1 unconnected: the reading is noisy, so you will see the **CHECK SENSOR**
 
 ## 8. What changed
 
-**3.1** — nothing runs on after A+B turns the device off mid-alert (the status line used to say `wait`); a bad `uv=` value is rejected instead of turning into an "extreme" alert; one `ev=error` per sensor problem instead of one every retry; A while waiting shows the UV index and countdown, and A skips a scrolling LED message; `ev=inside` is only sent when A was really pressed; the repository can be imported straight from GitHub.
+**3.1** — nothing runs on after A+B turns the device off mid-alert (the status line used to say `wait`); a bad `uv=` value is rejected instead of turning into an "extreme" alert; one `ev=error` per sensor problem instead of one every retry; A while waiting shows the UV index and countdown, and A skips a scrolling LED message; `ev=inside` is only sent when A was really pressed; an alert that nobody answers ends in standby instead of repeating every 5 minutes; the status line says whether demo timings are on; the repository can be imported straight from GitHub.
 
 **3.0** — rewritten around the flowchart (one function per box, in order), Blocks view laid out in labelled sections, alerts only when sunscreen is not already on, numeric settings so everything is visible in `on start`, modern play-tone block.

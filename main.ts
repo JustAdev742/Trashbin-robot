@@ -84,6 +84,7 @@ let oledPresent = false
 let debugMode = false
 let sensorErrorReported = false
 let skipMessage = false
+let wentToStandby = false
 let uvZeroVolts = 0
 let uvVoltsPerIndex = 0
 let waitMs = 0
@@ -121,13 +122,15 @@ basic.forever(function () {
 // The flowchart from top to bottom. Every box and decision is a function below,
 // named after the box. "A and B held?" is the A+B button block: it turns the
 // device off at any moment; every wait stops as soon as that happens and the
-// rest of the trip is skipped.
+// rest of the trip is skipped. A branch that ended in standby goes straight
+// back to "Read UV sensor" instead of waiting 5 minutes.
 function runFlowchart() {
     readUvSensor()
     if (sensorReadingInRange()) {
         chooseUvValue()
         showUvReading()
         currentBand = uvBand(currentUv)
+        wentToStandby = false
         if (currentBand == "low") {
             showHappyFace()
         } else if (currentBand == "modhigh") {
@@ -137,7 +140,7 @@ function runFlowchart() {
         } else {
             extremeUv()
         }
-        if (deviceOn && currentBand != "extreme") {
+        if (deviceOn && !wentToStandby) {
             wait5Minutes()
             if (deviceOn && reapplyTimerExpired()) {
                 showReapplySunscreen()
@@ -243,6 +246,8 @@ function showHappyFace() {
 // much sunscreen to put on, then start the 2 hour reapply timer.
 // The flowchart comes back here every 5 minutes, so it only alerts while no
 // sunscreen is on (no timer running). Otherwise it just shows the time left.
+// If nobody presses A within alertGiveUpMinutes the device is probably not
+// being worn, so it goes to standby until a button is pressed.
 function moderateOrHighUv() {
     if (protectionLevel == 0) {
         stateName = "alert"
@@ -251,6 +256,8 @@ function moderateOrHighUv() {
         if (ackPressed) {
             showMessage("1 tsp SPF 50+ on each arm, each leg, front, back and face")
             sunscreenApplied(1)
+        } else if (deviceOn) {
+            standbyUntilButton()
         }
     } else {
         alreadyProtected()
@@ -260,6 +267,7 @@ function moderateOrHighUv() {
 // Branch 8-10 very high: Flash and fast beep until A is pressed, sunscreen as
 // above plus hat and shade, then start the 2 hour reapply timer.
 // Alerts again if the wearer only had the moderate / high advice so far.
+// No answer within alertGiveUpMinutes means standby, as above.
 function veryHighUv() {
     if (protectionLevel < 2) {
         stateName = "alert"
@@ -268,6 +276,8 @@ function veryHighUv() {
         if (ackPressed) {
             showMessage("1 tsp SPF 50+ on each arm, each leg, front, back and face. Wear a hat and seek shade")
             sunscreenApplied(2)
+        } else if (deviceOn) {
+            standbyUntilButton()
         }
     } else {
         alreadyProtected()
@@ -408,7 +418,8 @@ input.onButtonPressed(Button.AB, function () {
 
 // Flash all the LEDs and beep until A is pressed (or the app sends "ack").
 // fast = true is the quicker, higher beep for very high UV.
-// Gives up after alertGiveUpMinutes so a device left on a table does not beep all day.
+// Gives up after alertGiveUpMinutes so a device left on a table does not beep
+// all day; the caller then goes to standby.
 function flashAndBeepUntilA(fast: boolean) {
     ackPressed = false
     let beatMs = 500
@@ -447,8 +458,10 @@ function stillWaitingForA(untilTime: number): boolean {
 }
 
 // Box: Standby until any button is pressed (A, B, or "ack" from the app).
-// A+B still turns the device off.
+// A+B still turns the device off. Afterwards the flowchart goes straight
+// back to "Read UV sensor" (no 5 minute wait).
 function standbyUntilButton() {
+    wentToStandby = true
     stateName = "standby"
     sendEvent("standby")
     anyButtonPressed = false
@@ -678,7 +691,8 @@ function sendEvent(name: string) {
     sendLine("ev=" + name)
 }
 
-// The status line: state, UV values, band, seconds until reapply, sunscreen count
+// The status line: state, UV values, band, seconds until reapply, sunscreen
+// count, firmware version, and whether demo timings are on
 function sendStatus() {
     let reapplySeconds = -1
     if (reapplyTimerRunning) {
@@ -697,6 +711,11 @@ function sendStatus() {
     status = status + ";spf=" + reapplySeconds
     status = status + ";spfn=" + sunscreenCount
     status = status + ";fw=" + firmwareVersion
+    if (demoMode) {
+        status = status + ";demo=1"
+    } else {
+        status = status + ";demo=0"
+    }
     sendLine(status)
 }
 
