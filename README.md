@@ -131,12 +131,13 @@ st=wait;uv=7.3;sen=7.1;onl=6.5;band=vhigh;spf=5400;spfn=3;fw=3.1;demo=0
 
 The micro:bit has no internet, so the app does the online half of the flowchart. It runs in the browser at **https://justadev742.github.io/Trashbin-robot/** (GitHub Pages publishes the repository root on every push to `main`, and `index.html` is the app) and everything it stores stays in that browser.
 
-- **Live UV for where you are.** It uses your location, or a town you search for, and asks [Open-Meteo](https://open-meteo.com/) for the UV index there right now plus today's hourly curve. It sends `uv=<value>` to the device when it connects, every 10 minutes (adjustable), and whenever you refresh.
-- **Connect over Bluetooth or USB.** Bluetooth: Chrome or Edge on Android, Windows, macOS and ChromeOS, or the Bluefy browser on iPhone and iPad. USB: Chrome or Edge on a computer, using the same text lines over serial.
-- **On the wrist.** The flowchart step the device is on, the UV value it is using, its own sensor and the online value, the sunscreen countdown, and buttons for Done (A), Check now, demo timings and power.
-- **History.** Sunscreen applications per day as a chart and a table, reminders, going inside, a timestamped event log, CSV export, and optional notifications.
+- **Live UV for where you are.** It uses your location, or a town you search for, and asks [Open-Meteo](https://open-meteo.com/) for the UV index there right now, today's hourly curve and peak, and the sun protection times (the hours with UV 3 or more). It sends `uv=<value>` to the device when it connects, every 10 minutes (adjustable), whenever you refresh, and again if the device reports it has lost the value (for example after a restart).
+- **Connect over Bluetooth or USB.** Bluetooth: Chrome or Edge on Android, Windows, macOS and ChromeOS, or the Bluefy browser on iPhone and iPad; if the micro:bit goes out of range or restarts, the app reconnects by itself for about two minutes. USB: Chrome or Edge on a computer, using the same text lines over serial.
+- **On the wrist.** The flowchart step the device is on, the UV value it is using, its own sensor and the online value, the sunscreen countdown with a draining bar, and buttons for Done (A), Check now, demo timings and power.
+- **History.** Sunscreen applications per day over 7, 14 or 30 days as a chart and a table, today's time in the sun by UV band (counted while the device is connected and measuring), reminders, going inside, a timestamped event log, CSV export, a sunscreen guide, and optional notifications.
 - **Tools.** Zero the sensor in the dark, calibrate it to the live UV index in one click, ping, debug lines, and a raw console for any command.
-- **Try a demo device** runs a pretend micro:bit that speaks the same protocol, so the app can be shown without hardware.
+- **Try a demo device** runs a pretend micro:bit that speaks the same protocol, so the app can be shown without hardware. Its events are marked *demo* and are never kept in the history.
+- **Install it.** On Android (Chrome) or a desktop browser, "Add to Home screen" or "Install" turns the page into an app of its own; it opens without a network connection too, so the Bluetooth side keeps working offline. There is also a "keep the screen on while connected" option, since a phone that sleeps stops sending UV updates.
 
 Browsers only allow Bluetooth and USB on secure pages, so open the app from its https address (or `localhost`), not from a file.
 
@@ -153,11 +154,14 @@ Leave P1 unconnected: the reading is noisy, so you will see the **CHECK SENSOR**
 | `docs/sunburn-flowchart.pdf`, `docs/sunburn-flowchart.png` | The flowchart the program follows |
 | `docs/blocks-overview.png` | The Blocks view zoomed out |
 | `index.html`, `.nojekyll` | The companion web app (one file, no build step), served as the site root; `.nojekyll` makes Pages publish the files as they are |
+| `manifest.webmanifest`, `sw.js`, `icon.svg`, `icon-192.png`, `icon-512.png` | What makes the app installable and able to open offline |
 | `.github/workflows/pages.yml` | Publishes the repository to GitHub Pages (works whether the Pages source is a branch or GitHub Actions) |
 
 ## 9. What changed
 
-**App** — companion web app: live UV index for your location sent over Bluetooth or USB, device status, history, calibration tools and a demo device.
+**App 1.1** — Bluetooth auto-reconnect; the UV value is re-sent when the device loses it; sun protection times for the day; today's time in the sun by UV band; a sunscreen countdown bar; 7/14/30-day history; a sunscreen guide; demo events kept out of the history; installable with offline shell; keep-screen-on option; an inline message and an automatic retry when the UV service does not answer.
+
+**App 1.0** — companion web app: live UV index for your location sent over Bluetooth or USB, device status, history, calibration tools and a demo device.
 
 **3.1** — nothing runs on after A+B turns the device off mid-alert (the status line used to say `wait`); a bad `uv=` value is rejected instead of turning into an "extreme" alert; one `ev=error` per sensor problem instead of one every retry; A while waiting shows the UV index and countdown, and A skips a scrolling LED message; `ev=inside` is only sent when A was really pressed; an alert that nobody answers ends in standby instead of repeating every 5 minutes; the status line says whether demo timings are on; the repository can be imported straight from GitHub.
 
