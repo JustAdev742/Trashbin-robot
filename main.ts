@@ -1,5 +1,5 @@
 // =====================================================================
-//  SUNBURN DEVICE  -  micro:bit firmware 3.0
+//  SUNBURN DEVICE  -  micro:bit firmware 3.1
 // =====================================================================
 //  A UV wearable that follows the "Sunburn Flowchart":
 //  read the UV sensor, combine it with the online UV index from a phone,
@@ -58,7 +58,7 @@ let tapMaxMinutes = 2
 let alertGiveUpMinutes = 10
 let onlineUvMaxAgeMinutes = 30
 let sensorRetrySeconds = 5
-let firmwareVersion = "3.0"
+let firmwareVersion = "3.1"
 
 // ----- State variables: the program updates these itself -----
 // (variables that start at 0, false or empty do not show in Blocks)
@@ -82,6 +82,7 @@ let anyButtonPressed = false
 let btConnected = false
 let oledPresent = false
 let debugMode = false
+let sensorErrorReported = false
 let uvZeroVolts = 0
 let uvVoltsPerIndex = 0
 let waitMs = 0
@@ -118,7 +119,8 @@ basic.forever(function () {
 
 // The flowchart from top to bottom. Every box and decision is a function below,
 // named after the box. "A and B held?" is the A+B button block: it turns the
-// device off at any moment, and every wait below stops as soon as that happens.
+// device off at any moment; every wait stops as soon as that happens and the
+// rest of the trip is skipped.
 function runFlowchart() {
     readUvSensor()
     if (sensorReadingInRange()) {
@@ -134,7 +136,7 @@ function runFlowchart() {
         } else {
             extremeUv()
         }
-        if (currentBand != "extreme") {
+        if (deviceOn && currentBand != "extreme") {
             wait5Minutes()
             if (deviceOn && reapplyTimerExpired()) {
                 showReapplySunscreen()
@@ -176,13 +178,20 @@ function sensorReadingInRange(): boolean {
     if (sensorUv < -1.5 || sensorUv > 20) {
         inRange = false
     }
+    if (inRange) {
+        sensorErrorReported = false
+    }
     return inRange
 }
 
-// Box: Show CHECK SENSOR, beep, retry in 5 s.  A bad sensor is never treated as "safe".
+// Box: Show CHECK SENSOR, beep, retry in 5 s.  A bad sensor is never treated as
+// "safe". The app gets one ev=error per problem, not one per retry.
 function showCheckSensor() {
     stateName = "error"
-    sendLine("ev=error;msg=CHECK SENSOR")
+    if (!sensorErrorReported) {
+        sendLine("ev=error;msg=CHECK SENSOR")
+        sensorErrorReported = true
+    }
     basic.showIcon(IconNames.No)
     showMessage("CHECK SENSOR")
     oledFooter("pin " + formatNumber(sensorVolts) + " V")
@@ -300,13 +309,19 @@ function alreadyProtected() {
     oledShowMessage("Sunscreen on. Reapply in " + formatTime(timeLeft))
 }
 
-// Box: Wait 5 minutes.  Ends early if the device is turned off or the reapply timer runs out.
+// Box: Wait 5 minutes.  Ends early if the device is turned off or the reapply
+// timer runs out. Pressing A while waiting shows the UV index and the countdown.
 function wait5Minutes() {
     stateName = "wait"
+    ackPressed = false
     let waitEndTime = input.runningTime() + waitMs
     let timeLeft = waitMs
     while (deviceOn && timeLeft > 0 && !reapplyTimerExpired()) {
         oledFooter("Next " + formatTime(timeLeft) + reapplyCountdownText())
+        if (ackPressed) {
+            ackPressed = false
+            showLedStatus()
+        }
         basic.pause(1000)
         timeLeft = waitEndTime - input.runningTime()
     }
@@ -361,7 +376,8 @@ function deviceTurnsOff() {
 
 // ===== 3. BUTTONS =====
 
-// A = "done": sunscreen is on / I am going inside.  Also wakes from standby.
+// A = "done": sunscreen is on / I am going inside.  Also wakes from standby,
+// and while the device is waiting it shows the UV index and the countdown.
 input.onButtonPressed(Button.A, function () {
     ackPressed = true
     anyButtonPressed = true
@@ -468,6 +484,19 @@ function uvBandName(uv: number): string {
         name = "VERY HIGH"
     }
     return name
+}
+
+// Pressing A while waiting: the UV index and the time until reapply scroll across
+// the LEDs, then the icon comes back
+function showLedStatus() {
+    basic.showString("UV " + Math.round(currentUv) + reapplyCountdownText())
+    if (protectionLevel > 0) {
+        basic.showIcon(IconNames.Yes)
+    } else if (currentBand == "low") {
+        basic.showIcon(IconNames.Happy)
+    } else {
+        basic.clearScreen()
+    }
 }
 
 // A message: on the OLED if there is one, otherwise scrolled once across the LEDs
@@ -668,9 +697,14 @@ function handleCommand(command: string) {
     }
     debugLog("cmd " + key + " " + value)
     if (key == "uv") {
-        onlineUv = parseFloat(value)
-        onlineUvTime = input.runningTime()
-        sendLine("ok=uv")
+        let newUv = parseFloat(value)
+        if (newUv >= 0 && newUv <= 20) {
+            onlineUv = newUv
+            onlineUvTime = input.runningTime()
+            sendLine("ok=uv")
+        } else {
+            sendLine("err=uv")
+        }
     } else if (key == "ack") {
         ackPressed = true
         anyButtonPressed = true

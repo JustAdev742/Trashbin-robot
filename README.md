@@ -1,15 +1,21 @@
-# Sunburn device — micro:bit firmware 3.0
+# Sunburn device — micro:bit firmware 3.1
 
 A UV wearable for the BBC micro:bit that follows the **Sunburn Flowchart**: it reads a UV sensor, combines it with the online UV index sent by a phone over Bluetooth, and then flashes, beeps or taps your arm until you put sunscreen on. Two hours later it reminds you to reapply.
 
 The whole program is real MakeCode blocks (no grey JavaScript blocks), laid out in nine numbered sections that follow the flowchart box by box.
 
+![The Blocks view zoomed out: nine numbered sections in two rows](docs/blocks-overview.png)
+
 ## 1. Load it
+
+**From the project file**
 
 1. Open [makecode.microbit.org](https://makecode.microbit.org).
 2. On the home page click **Import**, then **Import File…**, and choose `sunburn-device.mkcd` (dragging the file onto the editor also works).
 3. The project opens in the Blocks view with the Bluetooth extension and the "No Pairing Required" setting already in place.
 4. Click **Download** and copy the `.hex` to the micro:bit.
+
+**Straight from GitHub** (works while this repository is public): click **Import**, then **Import URL…**, and paste `https://github.com/JustAdev742/Trashbin-robot`. The `pxt.json`, `main.ts` and `main.blocks` in the root of this repository are the same project.
 
 You need a **micro:bit V2**. Bluetooth plus this program does not fit in a V1's memory; the editor will tell you so if you try (firmware 2.2 had the same limit).
 
@@ -60,6 +66,8 @@ Cheap UV sensors are only roughly calibrated. Once it is wired up, look up today
 
 ## 4. What it does (the flowchart)
 
+![The Sunburn Flowchart](docs/sunburn-flowchart.png)
+
 | Step | What happens |
 |---|---|
 | Device turns on | Tick on the LEDs, Bluetooth starts advertising as `BBC micro:bit [name]` |
@@ -70,7 +78,7 @@ Cheap UV sensors are only roughly calibrated. Once it is wired up, look up today
 | 3–7 moderate / high | Flash and slow beep until **A**, then "1 tsp SPF 50+ on each arm, each leg, front, back and face", then the 2 hour timer starts |
 | 8–10 very high | Flash and fast beep until **A**, the same sunscreen advice plus hat and shade, then the 2 hour timer starts |
 | 11+ extreme | The servo taps the arm until **A** (after 2 minutes it beeps instead), then "Go inside now. Sunscreen on the way", then standby until any button is pressed |
-| Wait 5 minutes | Then back to the top |
+| Wait 5 minutes | Then back to the top. Press **A** meanwhile to see the UV index and the time until reapply on the LEDs |
 | A and B held? | A+B turns the device off at any moment. A+B again turns it on |
 | Reapply timer expired? | "Reapply sunscreen", then the next trip round the flowchart alerts again and starts a fresh 2 hours |
 
@@ -78,7 +86,7 @@ One deliberate difference from a literal reading of the chart: the flowchart re-
 
 | Buttons | |
 |---|---|
-| **A** | "Done": sunscreen is on / I am going inside. Also wakes from standby |
+| **A** | "Done": sunscreen is on / I am going inside. Also wakes from standby. While the device is waiting between checks, A shows the UV index and the sunscreen countdown |
 | **B** | Wakes from standby. Hold B while switching on for **demo mode** (10 s waits, 1 minute sunscreen timer) |
 | **A + B** | Device turns off / on. Bluetooth stays up so the app can turn it on again |
 
@@ -91,7 +99,7 @@ The micro:bit exposes the standard **Nordic UART service** (`6E400001-B5A3-F393-
 **Device → app**, every 2 seconds:
 
 ```
-st=wait;uv=7.3;sen=7.1;onl=6.5;band=vhigh;spf=5400;spfn=3;fw=3.0
+st=wait;uv=7.3;sen=7.1;onl=6.5;band=vhigh;spf=5400;spfn=3;fw=3.1
 ```
 
 | Field | Meaning |
@@ -103,19 +111,19 @@ st=wait;uv=7.3;sen=7.1;onl=6.5;band=vhigh;spf=5400;spfn=3;fw=3.0
 | `spf` | seconds until sunscreen reapply is due (`-1` = no timer running) |
 | `spfn` | sunscreen applications acknowledged since power-on |
 
-**Device → app**, on events: `ev=on` `ev=off` `ev=sunscreen` `ev=reapply` `ev=inside` `ev=standby` `ev=error;msg=CHECK SENSOR`. Logging these with a timestamp is all a website needs for daily and monthly statistics.
+**Device → app**, on events: `ev=on` `ev=off` `ev=sunscreen` `ev=reapply` `ev=inside` `ev=standby` `ev=error;msg=CHECK SENSOR` (once per sensor problem, not once per retry). Logging these with a timestamp is all a website needs for daily and monthly statistics.
 
 **App → device**, one command per line (`\n` terminated):
 
 | Command | Effect |
 |---|---|
-| `uv=6.5` | Push the online UV index |
+| `uv=6.5` | Push the online UV index (0 to 20; anything else gets `err=uv`) |
 | `ack` | Same as pressing A |
 | `zero` / `cal=7.0` | Calibrate the sensor (dark point / known UV index) |
 | `demo=1` / `demo=0` | Demo timings on / off |
 | `power=0` / `power=1` | Turn off / on |
 | `debug=1` / `debug=0` | Extra `dbg:` lines on the serial console (raw sensor values, commands) |
-| `ping` | Replies `pong;fw=3.0;oled=1` |
+| `ping` | Replies `pong;fw=3.1;oled=1` |
 | `read` | Send a status line immediately |
 
 ## 6. Quick test without any sensor
@@ -127,7 +135,12 @@ Leave P1 unconnected: the reading is noisy, so you will see the **CHECK SENSOR**
 | File | What it is |
 |---|---|
 | `sunburn-device.mkcd` | The project to import into MakeCode (blocks, code, this README) |
-| `source/main.ts` | The program as JavaScript, in section order with comments |
-| `source/main.blocks` | The Blocks view, with the section notes and layout |
-| `source/pxt.json` | Project settings: the `bluetooth` extension and the No Pairing Required flag |
-| `docs/sunburn-flowchart.pdf` | The flowchart the program follows |
+| `pxt.json`, `main.ts`, `main.blocks` | The same project as a MakeCode GitHub project: settings, the program as JavaScript in section order, and the Blocks layout |
+| `docs/sunburn-flowchart.pdf`, `docs/sunburn-flowchart.png` | The flowchart the program follows |
+| `docs/blocks-overview.png` | The Blocks view zoomed out |
+
+## 8. What changed
+
+**3.1** — nothing runs on after A+B turns the device off mid-alert (the status line used to say `wait`); a bad `uv=` value is rejected instead of turning into an "extreme" alert; one `ev=error` per sensor problem instead of one every retry; A while waiting shows the UV index and countdown; the repository can be imported straight from GitHub.
+
+**3.0** — rewritten around the flowchart (one function per box, in order), Blocks view laid out in labelled sections, alerts only when sunscreen is not already on, numeric settings so everything is visible in `on start`, modern play-tone block.

@@ -11,6 +11,10 @@
         "README.md"
     ],
     "preferredEditor": "blocksprj",
+    "targetVersions": {
+        "target": "9.0.12",
+        "pxt": "13.0.9"
+    },
     "yotta": {
         "config": {
             "microbit-dal": {
