@@ -129,7 +129,7 @@ st=wait;uv=7.3;sen=7.1;onl=6.5;band=vhigh;spf=5400;spfn=3;fw=3.1;demo=0
 
 ## 6. The companion app
 
-The micro:bit has no internet, so the app does the online half of the flowchart. It runs in the browser at **https://joviangame.me/Trashbin-robot/** (published from the `app` folder by GitHub Actions on every push to `main`; the `justadev742.github.io/Trashbin-robot` address redirects there because the account's Pages site uses that custom domain) and everything it stores stays in that browser.
+The micro:bit has no internet, so the app does the online half of the flowchart. It runs in the browser at **https://joviangame.me/Trashbin-robot/** (GitHub Pages publishes the repository root on every push to `main`, and `index.html` is the app; the `justadev742.github.io/Trashbin-robot` address redirects there because the account's Pages site uses that custom domain) and everything it stores stays in that browser.
 
 - **Live UV for where you are.** It uses your location, or a town you search for, and asks [Open-Meteo](https://open-meteo.com/) for the UV index there right now plus today's hourly curve. It sends `uv=<value>` to the device when it connects, every 10 minutes (adjustable), and whenever you refresh.
 - **Connect over Bluetooth or USB.** Bluetooth: Chrome or Edge on Android, Windows, macOS and ChromeOS, or the Bluefy browser on iPhone and iPad. USB: Chrome or Edge on a computer, using the same text lines over serial.
@@ -152,8 +152,8 @@ Leave P1 unconnected: the reading is noisy, so you will see the **CHECK SENSOR**
 | `pxt.json`, `main.ts`, `main.blocks` | The same project as a MakeCode GitHub project: settings, the program as JavaScript in section order, and the Blocks layout |
 | `docs/sunburn-flowchart.pdf`, `docs/sunburn-flowchart.png` | The flowchart the program follows |
 | `docs/blocks-overview.png` | The Blocks view zoomed out |
-| `app/index.html` | The companion web app: one file, no build step |
-| `.github/workflows/pages.yml` | Publishes the `app` folder to GitHub Pages |
+| `index.html`, `.nojekyll` | The companion web app (one file, no build step), served as the site root; `.nojekyll` makes Pages publish the files as they are |
+| `.github/workflows/pages.yml` | Publishes the repository to GitHub Pages (works whether the Pages source is a branch or GitHub Actions) |
 
 ## 9. What changed
 

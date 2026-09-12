@@ -294,6 +294,10 @@
 
 <script>
 'use strict';
+// Bluetooth and USB only work on a secure page. GitHub Pages serves this site over https too, so hop across if we arrived on http.
+if (location.protocol === 'http:' && !/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
+  location.replace('https://' + location.host + location.pathname + location.search + location.hash);
+}
 /* ===================================================================
    Sunburn device companion app.  One file, no build step.
    Sections: protocol · transports (Bluetooth, USB, demo) · live UV ·
