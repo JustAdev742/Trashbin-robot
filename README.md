@@ -1,6 +1,6 @@
 # Sunburn device — micro:bit firmware 3.1
 
-A UV wearable for the BBC micro:bit that follows the **Sunburn Flowchart**: it reads a UV sensor, combines it with the online UV index sent by a phone over Bluetooth, and then flashes, beeps or taps your arm until you put sunscreen on. Two hours later it reminds you to reapply. A companion web app at **https://justadev742.github.io/Trashbin-robot/** supplies the live UV index for your location over Bluetooth and shows the device's status and history (section 6).
+A UV wearable for the BBC micro:bit that follows the **Sunburn Flowchart**: it reads a UV sensor, combines it with the online UV index sent by a phone over Bluetooth, and then flashes, beeps or taps your arm until you put sunscreen on. Two hours later it reminds you to reapply. A companion web app at **https://joviangame.me/Trashbin-robot/** supplies the live UV index for your location over Bluetooth and shows the device's status and history (section 6).
 
 The whole program is real MakeCode blocks (no grey JavaScript blocks), laid out in nine numbered sections that follow the flowchart box by box.
 
@@ -129,7 +129,7 @@ st=wait;uv=7.3;sen=7.1;onl=6.5;band=vhigh;spf=5400;spfn=3;fw=3.1;demo=0
 
 ## 6. The companion app
 
-The micro:bit has no internet, so the app does the online half of the flowchart. It runs in the browser at **https://justadev742.github.io/Trashbin-robot/** (published from the `app` folder by GitHub Actions on every push to `main`) and everything it stores stays in that browser.
+The micro:bit has no internet, so the app does the online half of the flowchart. It runs in the browser at **https://joviangame.me/Trashbin-robot/** (published from the `app` folder by GitHub Actions on every push to `main`; the `justadev742.github.io/Trashbin-robot` address redirects there because the account's Pages site uses that custom domain) and everything it stores stays in that browser.
 
 - **Live UV for where you are.** It uses your location, or a town you search for, and asks [Open-Meteo](https://open-meteo.com/) for the UV index there right now plus today's hourly curve. It sends `uv=<value>` to the device when it connects, every 10 minutes (adjustable), and whenever you refresh.
 - **Connect over Bluetooth or USB.** Bluetooth: Chrome or Edge on Android, Windows, macOS and ChromeOS, or the Bluefy browser on iPhone and iPad. USB: Chrome or Edge on a computer, using the same text lines over serial.
