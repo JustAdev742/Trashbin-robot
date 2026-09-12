@@ -1,6 +1,6 @@
 # Sunburn device — micro:bit firmware 3.1
 
-A UV wearable for the BBC micro:bit that follows the **Sunburn Flowchart**: it reads a UV sensor, combines it with the online UV index sent by a phone over Bluetooth, and then flashes, beeps or taps your arm until you put sunscreen on. Two hours later it reminds you to reapply.
+A UV wearable for the BBC micro:bit that follows the **Sunburn Flowchart**: it reads a UV sensor, combines it with the online UV index sent by a phone over Bluetooth, and then flashes, beeps or taps your arm until you put sunscreen on. Two hours later it reminds you to reapply. A companion web app at **https://justadev742.github.io/Trashbin-robot/** supplies the live UV index for your location over Bluetooth and shows the device's status and history (section 6).
 
 The whole program is real MakeCode blocks (no grey JavaScript blocks), laid out in nine numbered sections that follow the flowchart box by box.
 
@@ -62,7 +62,7 @@ Crowtail, ElecFreaks, Kitronik and similar boards route the same pins to plugs: 
 | `alertGiveUpMinutes` | how long a flash-and-beep alert carries on with no answer before the device assumes it is not being worn and goes to standby |
 | `onlineUvMaxAgeMinutes` | how long a value from the phone counts as "the phone is sending online UV" |
 
-Cheap UV sensors are only roughly calibrated. Once it is wired up, look up today's UV index on a weather site, hold the sensor in the sun and send `cal=<that number>` (see section 5 of this file); the scale corrects itself. Send `zero` in the dark first if the reading is not 0 indoors. Calibration lives in RAM, so put the corrected numbers into `applySensorPreset` to make them permanent.
+Cheap UV sensors are only roughly calibrated. Once it is wired up, look up today's UV index on a weather site, hold the sensor in the sun and send `cal=<that number>` (see section 5 of this file); the scale corrects itself. Send `zero` in the dark first if the reading is not 0 indoors. Do this on the batteries you will actually wear: on 2×AAA the micro:bit's analog reference is about 3.0 V instead of the 3.3 V it has on USB, which shifts every reading by roughly 10%. Calibration lives in RAM, so put the corrected numbers into `applySensorPreset` to make them permanent. The app's **Calibrate sensor to live UV** button does the `cal=` step for you.
 
 ## 4. What it does (the flowchart)
 
@@ -127,11 +127,24 @@ st=wait;uv=7.3;sen=7.1;onl=6.5;band=vhigh;spf=5400;spfn=3;fw=3.1;demo=0
 | `ping` | Replies `pong;fw=3.1;oled=1` |
 | `read` | Send a status line immediately |
 
-## 6. Quick test without any sensor
+## 6. The companion app
+
+The micro:bit has no internet, so the app does the online half of the flowchart. It runs in the browser at **https://justadev742.github.io/Trashbin-robot/** (published from the `app` folder by GitHub Actions on every push to `main`) and everything it stores stays in that browser.
+
+- **Live UV for where you are.** It uses your location, or a town you search for, and asks [Open-Meteo](https://open-meteo.com/) for the UV index there right now plus today's hourly curve. It sends `uv=<value>` to the device when it connects, every 10 minutes (adjustable), and whenever you refresh.
+- **Connect over Bluetooth or USB.** Bluetooth: Chrome or Edge on Android, Windows, macOS and ChromeOS, or the Bluefy browser on iPhone and iPad. USB: Chrome or Edge on a computer, using the same text lines over serial.
+- **On the wrist.** The flowchart step the device is on, the UV value it is using, its own sensor and the online value, the sunscreen countdown, and buttons for Done (A), Check now, demo timings and power.
+- **History.** Sunscreen applications per day as a chart and a table, reminders, going inside, a timestamped event log, CSV export, and optional notifications.
+- **Tools.** Zero the sensor in the dark, calibrate it to the live UV index in one click, ping, debug lines, and a raw console for any command.
+- **Try a demo device** runs a pretend micro:bit that speaks the same protocol, so the app can be shown without hardware.
+
+Browsers only allow Bluetooth and USB on secure pages, so open the app from its https address (or `localhost`), not from a file.
+
+## 7. Quick test without any sensor
 
 Leave P1 unconnected: the reading is noisy, so you will see the **CHECK SENSOR** path. Tie P1 to 3V for an "extreme" reading (the servo taps, then standby), or to GND for "safe". In the MakeCode console type `uv=9` to test the online path, and hold B while resetting for demo timings so the whole flowchart plays out in a few minutes.
 
-## 7. Files
+## 8. Files
 
 | File | What it is |
 |---|---|
@@ -139,8 +152,12 @@ Leave P1 unconnected: the reading is noisy, so you will see the **CHECK SENSOR**
 | `pxt.json`, `main.ts`, `main.blocks` | The same project as a MakeCode GitHub project: settings, the program as JavaScript in section order, and the Blocks layout |
 | `docs/sunburn-flowchart.pdf`, `docs/sunburn-flowchart.png` | The flowchart the program follows |
 | `docs/blocks-overview.png` | The Blocks view zoomed out |
+| `app/index.html` | The companion web app: one file, no build step |
+| `.github/workflows/pages.yml` | Publishes the `app` folder to GitHub Pages |
 
-## 8. What changed
+## 9. What changed
+
+**App** — companion web app: live UV index for your location sent over Bluetooth or USB, device status, history, calibration tools and a demo device.
 
 **3.1** — nothing runs on after A+B turns the device off mid-alert (the status line used to say `wait`); a bad `uv=` value is rejected instead of turning into an "extreme" alert; one `ev=error` per sensor problem instead of one every retry; A while waiting shows the UV index and countdown, and A skips a scrolling LED message; `ev=inside` is only sent when A was really pressed; an alert that nobody answers ends in standby instead of repeating every 5 minutes; the status line says whether demo timings are on; the repository can be imported straight from GitHub.
 
