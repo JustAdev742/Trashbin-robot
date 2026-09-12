@@ -1,0 +1,960 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Sunburn device</title>
+<meta name="description" content="Companion app for the Sunburn device: live UV index for where you are, sent to the micro:bit over Bluetooth, plus the device status, sunscreen reminders and history.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='9' fill='%23e8401c'/%3E%3C/svg%3E">
+<style>
+  :root {
+    color-scheme: light;
+    --page: #fff6e6;
+    --surface: #fffdf8;
+    --surface-2: #fdf3e1;
+    --ink: #1c1917;
+    --ink-2: #57534e;
+    --muted: #8a857d;
+    --hairline: #ece5d6;
+    --baseline: #d8cfbc;
+    --accent: #e8401c;
+    --accent-ink: #ffffff;
+    --accent-soft: rgba(232, 64, 28, 0.10);
+    --good: #0ca30c;
+    --critical: #d03b3b;
+    --shadow: 0 1px 2px rgba(28, 25, 23, 0.06), 0 8px 24px rgba(28, 25, 23, 0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page: #141210;
+      --surface: #1c1917;
+      --surface-2: #26221e;
+      --ink: #f5f2ec;
+      --ink-2: #c9c3b8;
+      --muted: #8a857d;
+      --hairline: #2e2a26;
+      --baseline: #3a3531;
+      --accent: #ec5533;
+      --accent-ink: #ffffff;
+      --accent-soft: rgba(236, 85, 51, 0.16);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--page); }
+  body {
+    margin: 0; padding-block: 0 48px; padding-inline: 16px;
+    background: var(--page); color: var(--ink);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  a { color: inherit; }
+  button, input, select {
+    font: inherit; color: inherit;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+
+  /* header */
+  header.top {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px;
+    padding-block: 18px 14px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
+  .brand .sun { width: 30px; height: 30px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 6px var(--accent-soft); }
+  .brand h1 { font-size: 20px; margin: 0; letter-spacing: -0.01em; }
+  .brand p { margin: 0; color: var(--ink-2); font-size: 13px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px;
+    background: var(--surface-2); color: var(--ink-2); font-size: 13px; border: 1px solid var(--hairline);
+  }
+  .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .pill.is-on .dot { background: var(--good); }
+  .pill.is-on { color: var(--ink); }
+  .btn {
+    appearance: none; border: 1px solid var(--hairline); background: var(--surface); color: var(--ink);
+    padding: 8px 14px; border-radius: 10px; cursor: pointer; line-height: 1.2; font-weight: 500;
+  }
+  .btn:hover { background: var(--surface-2); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+  .btn.primary:hover { filter: brightness(0.95); }
+  .btn.small { padding: 6px 10px; font-size: 13px; }
+  .btn.danger { color: var(--critical); }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .row.tight { gap: 6px; }
+
+  /* cards */
+  .grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+  @media (min-width: 900px) { .grid { grid-template-columns: 1fr 1fr; } .grid .span2 { grid-column: 1 / -1; } }
+  .card {
+    background: var(--surface); border: 1px solid var(--hairline); border-radius: 16px; padding: 18px 20px;
+    box-shadow: var(--shadow);
+  }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 12px; font-weight: 600; }
+  .card h2 small { text-transform: none; letter-spacing: 0; font-weight: 400; margin-left: 8px; }
+  .hero { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 18px; margin-bottom: 4px; }
+  .hero .num { font-size: 64px; font-weight: 600; line-height: 1; letter-spacing: -0.02em; }
+  .hero .num.empty { color: var(--muted); font-size: 40px; }
+  .band {
+    display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; font-weight: 600; font-size: 14px;
+    background: var(--surface-2); color: var(--ink-2);
+  }
+  .band .sw { width: 10px; height: 10px; border-radius: 3px; background: var(--muted); }
+  .sub { color: var(--ink-2); font-size: 14px; margin: 4px 0 0; }
+  .sub b { color: var(--ink); font-weight: 600; }
+  .muted { color: var(--muted); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px 16px; margin: 12px 0; }
+  .stat .l { font-size: 12px; color: var(--muted); }
+  .stat .v { font-size: 20px; font-weight: 600; line-height: 1.25; }
+  .stat .v small { font-size: 13px; font-weight: 400; color: var(--ink-2); }
+  .state { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); margin-bottom: 10px; }
+  .state .icon { font-size: 26px; width: 34px; text-align: center; }
+  .state .t { font-weight: 600; font-size: 17px; }
+  .state .d { color: var(--ink-2); font-size: 13px; }
+  .state.alert { background: var(--accent-soft); }
+  .hint { font-size: 13px; color: var(--ink-2); margin: 8px 0 0; }
+  .hint.warn { color: var(--critical); }
+  label.tog { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+  input[type="text"], select {
+    border: 1px solid var(--hairline); background: var(--surface); border-radius: 10px; padding: 8px 10px; min-width: 0;
+  }
+  input[type="text"] { flex: 1 1 160px; }
+  .search-results { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
+  .search-results button { text-align: left; width: 100%; }
+  hr.sep { border: 0; border-top: 1px solid var(--hairline); margin: 14px 0; }
+
+  /* charts */
+  .chart { position: relative; width: 100%; }
+  .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .chart { min-height: 40px; }
+  .chart .grid-line { stroke: var(--hairline); stroke-width: 1; }
+  .chart .base { stroke: var(--baseline); stroke-width: 1; }
+  .chart .tick { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .chart .lab { fill: var(--ink-2); font-size: 11px; }
+  .chart .bar { fill: var(--accent); }
+  .chart .bar-hit { fill: transparent; cursor: default; }
+  .chart .bar-hit:hover + .bar, .chart .bar-hit:focus-visible + .bar { filter: brightness(1.15); }
+  .chart .bar-hit:focus-visible { outline: none; }
+  .chart .line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .chart .area { fill: var(--accent); opacity: 0.10; }
+  .chart .marker { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
+  .chart .xhair { stroke: var(--baseline); stroke-width: 1; }
+  .tooltip {
+    position: absolute; pointer-events: none; background: var(--ink); color: var(--page); padding: 6px 9px; border-radius: 8px;
+    font-size: 12px; line-height: 1.35; white-space: nowrap; transform: translate(-50%, -100%); margin-top: -8px; display: none; z-index: 2;
+  }
+  .tooltip b { font-size: 13px; }
+  table.tbl { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+  table.tbl th, table.tbl td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--hairline); }
+  table.tbl td.n, table.tbl th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .tbl-wrap { overflow-x: auto; }
+
+  /* events & console */
+  ul.events { list-style: none; margin: 0; padding: 0; }
+  ul.events li { display: grid; grid-template-columns: 62px 1fr; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--hairline); font-size: 14px; }
+  ul.events li time { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; padding-top: 1px; }
+  ul.events li .e { font-weight: 600; }
+  ul.events li .m { color: var(--ink-2); font-size: 13px; }
+  details.adv summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+  pre.console {
+    background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 10px; padding: 10px 12px; max-height: 240px; overflow: auto;
+    font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; margin: 8px 0 0; white-space: pre-wrap; word-break: break-all; color: var(--ink-2);
+  }
+  footer { margin-top: 28px; color: var(--ink-2); font-size: 13px; }
+  footer h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 18px 0 6px; }
+  footer p { margin: 4px 0; }
+  .toast {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: var(--page);
+    padding: 10px 16px; border-radius: 10px; font-size: 14px; box-shadow: var(--shadow); opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 5; max-width: calc(100vw - 32px);
+  }
+  .toast.show { opacity: 1; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="sun" aria-hidden="true"></div>
+      <div>
+        <h1>Sunburn device</h1>
+        <p>Live UV for where you are, sent to the wearable</p>
+      </div>
+    </div>
+    <span class="pill" id="linkPill"><span class="dot"></span><span id="linkText">Not connected</span></span>
+    <button class="btn primary" id="btnBle">Connect Bluetooth</button>
+    <button class="btn" id="btnSerial">Connect USB</button>
+    <button class="btn" id="btnDemo">Try a demo device</button>
+    <button class="btn" id="btnDisconnect" hidden>Disconnect</button>
+  </header>
+  <p class="hint warn" id="secureHint" hidden>Bluetooth and USB only work on a secure page (https or localhost). Open this app from its GitHub Pages address.</p>
+  <p class="hint" id="supportHint" hidden></p>
+
+  <div class="grid">
+    <section class="card" aria-labelledby="hUv">
+      <h2 id="hUv">UV where you are <small class="muted" id="uvSource"></small></h2>
+      <div class="hero">
+        <div class="num empty" id="uvNum">–</div>
+        <span class="band" id="uvBand"><span class="sw"></span><span>No data yet</span></span>
+      </div>
+      <p class="sub" id="uvPlace">Use your location or search for a town to get the live UV index.</p>
+      <p class="sub" id="uvPeak"></p>
+      <div class="chart" id="curveChart" aria-label="Today's UV index by hour"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" id="btnLocate">Use my location</button>
+        <input type="text" id="placeInput" placeholder="or search a town, e.g. Brisbane" aria-label="Search a town">
+        <button class="btn" id="btnSearch">Search</button>
+        <button class="btn" id="btnRefresh">Refresh</button>
+      </div>
+      <ul class="search-results" id="searchResults"></ul>
+      <hr class="sep">
+      <div class="row">
+        <label class="tog"><input type="checkbox" id="autoSend"> Send to the device every</label>
+        <select id="sendEvery" aria-label="Send interval">
+          <option value="5">5 minutes</option>
+          <option value="10" selected>10 minutes</option>
+          <option value="15">15 minutes</option>
+          <option value="30">30 minutes</option>
+        </select>
+        <button class="btn small" id="btnSendNow">Send now</button>
+        <span class="muted" id="lastSent"></span>
+      </div>
+      <p class="hint">The device uses the higher of its own sensor and this value, for 30 minutes after each send.</p>
+    </section>
+
+    <section class="card" aria-labelledby="hDev">
+      <h2 id="hDev">On the wrist <small class="muted" id="devAge"></small></h2>
+      <div class="state" id="devState">
+        <div class="icon" aria-hidden="true">⌚</div>
+        <div><div class="t" id="devStateT">Not connected</div><div class="d" id="devStateD">Connect the micro:bit to see what it is doing.</div></div>
+      </div>
+      <div class="stats" id="devStats"></div>
+      <div class="row">
+        <button class="btn primary" id="btnAck" disabled>Done (A)</button>
+        <button class="btn" id="btnRead" disabled>Check now</button>
+        <button class="btn" id="btnDemoTimings" disabled>Demo timings: off</button>
+        <button class="btn" id="btnPower" disabled>Turn off</button>
+      </div>
+      <p class="hint" id="devHint">The device follows the Sunburn Flowchart: read the sensor, pick the higher UV value, alert until A is pressed, wait 5 minutes, remind after 2 hours.</p>
+    </section>
+
+    <section class="card span2" aria-labelledby="hHist">
+      <h2 id="hHist">Sunscreen history</h2>
+      <div class="stats" id="todayStats"></div>
+      <p class="sub" style="margin:0 0 6px"><b>Sunscreen applications per day</b> <span class="muted">· last 14 days · from the device's events while connected</span></p>
+      <div class="chart" id="histChart" aria-label="Sunscreen applications per day, last 14 days"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn small" id="btnTable">Show table</button>
+        <button class="btn small" id="btnCsv">Export events (CSV)</button>
+        <button class="btn small danger" id="btnClear">Clear history</button>
+      </div>
+      <div class="tbl-wrap" id="histTable" hidden></div>
+    </section>
+
+    <section class="card" aria-labelledby="hEv">
+      <h2 id="hEv">Events</h2>
+      <ul class="events" id="eventList"></ul>
+      <p class="hint" id="evHint">Sunscreen, reminders, going inside, standby and sensor problems appear here as the device reports them.</p>
+      <div class="row" style="margin-top:8px"><button class="btn small" id="btnMoreEv" hidden>Show all</button></div>
+    </section>
+
+    <section class="card" aria-labelledby="hAdv">
+      <h2 id="hAdv">Tools</h2>
+      <div class="row">
+        <button class="btn" id="btnZero" disabled>Zero sensor (in the dark)</button>
+        <button class="btn" id="btnCal" disabled>Calibrate sensor to live UV</button>
+      </div>
+      <p class="hint">Calibrate with the sensor in full sun, on the batteries you will wear, once the live UV above is fresh. The corrected scale lives in the device's memory until it restarts; copy the numbers into <code>applySensorPreset</code> to keep them.</p>
+      <div class="row" style="margin-top:10px">
+        <label class="tog"><input type="checkbox" id="notifyTog"> Notify me on this device</label>
+        <label class="tog"><input type="checkbox" id="debugTog" disabled> Debug lines from the micro:bit</label>
+        <button class="btn small" id="btnPing" disabled>Ping</button>
+      </div>
+      <details class="adv" style="margin-top:10px">
+        <summary>Console</summary>
+        <div class="row" style="margin-top:6px">
+          <input type="text" id="cmdInput" placeholder="command, e.g. uv=7.5 or read" aria-label="Command to send" disabled>
+          <button class="btn small" id="btnCmd" disabled>Send</button>
+        </div>
+        <pre class="console" id="console" aria-live="off"></pre>
+      </details>
+    </section>
+  </div>
+
+  <footer>
+    <h3>How it works</h3>
+    <p>The micro:bit has no internet, so this page does the online half of the flowchart: it finds your location, asks <a href="https://open-meteo.com/" rel="noopener">Open-Meteo</a> for the UV index there right now, and sends <code>uv=…</code> to the wearable over Bluetooth (or USB). The device uses whichever is higher, its own sensor or that value, and sends its status back every two seconds. Everything you see here is stored only in this browser.</p>
+    <h3>Browser support</h3>
+    <p><b>Bluetooth:</b> Chrome or Edge on Android, Windows, macOS and ChromeOS. On iPhone and iPad use the <a href="https://apps.apple.com/app/bluefy-web-ble-browser/id1492822055" rel="noopener">Bluefy</a> browser. <b>USB:</b> Chrome or Edge on a computer, with the micro:bit plugged in. The device must be running Sunburn firmware 3.0 or later with "No Pairing Required".</p>
+    <p class="muted">UV bands and colours follow the WHO Global Solar UV Index. Sunscreen amounts follow Cancer Council Australia.</p>
+  </footer>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+/* ===================================================================
+   Sunburn device companion app.  One file, no build step.
+   Sections: protocol · transports (Bluetooth, USB, demo) · live UV ·
+   state & storage · rendering · charts · wiring up
+   =================================================================== */
+
+// ---------- protocol ----------
+const NUS = {
+  service: '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
+  rx: '6e400002-b5a3-f393-e0a9-e50e24dcca9e',   // app -> device
+  tx: '6e400003-b5a3-f393-e0a9-e50e24dcca9e',   // device -> app
+};
+const STEPS = {
+  on:        ['Device turns on', 'Starting up', '✅'],
+  reading:   ['Read UV sensor', 'Taking a reading from the sensor', '🔎'],
+  error:     ['CHECK SENSOR', 'The sensor reading is out of range. It retries every 5 seconds.', '❌'],
+  safe:      ['Low UV', 'Happy face: no sunscreen needed right now', '🙂'],
+  alert:     ['Alert', 'Flashing, beeping or tapping until A is pressed', '🚨'],
+  protected: ['Sunscreen on', 'Waiting for the 2 hour reapply timer', '🧴'],
+  wait:      ['Wait 5 minutes', 'Checking the UV again soon', '⏳'],
+  standby:   ['Standby', 'Press a button on the device to check again', '😴'],
+  off:       ['Off', 'Press A+B on the device, or Turn on below', '⏻'],
+};
+const EVENT_LABELS = {
+  on: ['Device turned on', ''], off: ['Device turned off', ''],
+  sunscreen: ['Sunscreen applied', 'Reminder in 2 hours'], reapply: ['Reapply sunscreen', 'The 2 hour timer ran out'],
+  inside: ['Went inside', 'Extreme UV'], standby: ['Standby', 'Nobody answered, or extreme UV'],
+  error: ['Sensor problem', ''],
+};
+// WHO Global Solar UV Index bands and their official colours (status colours, always with a label)
+const BANDS = [
+  { max: 2, name: 'Low', color: '#3ea72d', ink: '#ffffff' },
+  { max: 5, name: 'Moderate', color: '#fff300', ink: '#1c1917' },
+  { max: 7, name: 'High', color: '#f18b00', ink: '#1c1917' },
+  { max: 10, name: 'Very high', color: '#e53210', ink: '#ffffff' },
+  { max: Infinity, name: 'Extreme', color: '#b567a4', ink: '#ffffff' },
+];
+const bandFor = uv => BANDS.find(b => Math.round(uv) <= b.max);
+const BAND_CODES = { low: 'Low', modhigh: 'Moderate / high', vhigh: 'Very high', extreme: 'Extreme' };
+
+function parseKv(line) {
+  const o = {};
+  for (const part of line.split(';')) {
+    const i = part.indexOf('=');
+    if (i < 0) o[part] = true; else o[part.slice(0, i)] = part.slice(i + 1);
+  }
+  return o;
+}
+
+// ---------- transports ----------
+// Every transport: connect() -> resolves when ready; send(text); close(); fields kind, name; callbacks onLine, onClose.
+class LineBuffer {
+  constructor(onLine) { this.buf = ''; this.onLine = onLine; }
+  push(text) {
+    this.buf += text;
+    let i;
+    while ((i = this.buf.indexOf('\n')) >= 0) {
+      const line = this.buf.slice(0, i).replace(/\r/g, '').trim();
+      this.buf = this.buf.slice(i + 1);
+      if (line) this.onLine(line);
+    }
+  }
+}
+
+class BleLink {
+  constructor() { this.kind = 'Bluetooth'; this.name = ''; this.onLine = () => {}; this.onClose = () => {}; }
+  async connect() {
+    const device = await navigator.bluetooth.requestDevice({ filters: [{ namePrefix: 'BBC micro:bit' }], optionalServices: [NUS.service] });
+    this.device = device; this.name = device.name || 'micro:bit';
+    device.addEventListener('gattserverdisconnected', () => this.onClose());
+    const server = await device.gatt.connect();
+    const service = await server.getPrimaryService(NUS.service);
+    this.rx = await service.getCharacteristic(NUS.rx);
+    this.tx = await service.getCharacteristic(NUS.tx);
+    const decoder = new TextDecoder();
+    const lines = new LineBuffer(l => this.onLine(l));
+    this.tx.addEventListener('characteristicvaluechanged', e => lines.push(decoder.decode(e.target.value)));
+    await this.tx.startNotifications();
+  }
+  async send(text) {
+    const bytes = new TextEncoder().encode(text + '\n');
+    for (let i = 0; i < bytes.length; i += 20) {
+      const chunk = bytes.slice(i, i + 20);
+      if (this.rx.properties.write) await (this.rx.writeValueWithResponse ? this.rx.writeValueWithResponse(chunk) : this.rx.writeValue(chunk));
+      else await this.rx.writeValueWithoutResponse(chunk);
+    }
+  }
+  close() { try { this.device && this.device.gatt.disconnect(); } catch (e) { /* already gone */ } }
+}
+
+class SerialLink {
+  constructor() { this.kind = 'USB'; this.name = 'micro:bit (USB)'; this.onLine = () => {}; this.onClose = () => {}; }
+  async connect() {
+    const port = await navigator.serial.requestPort({ filters: [{ usbVendorId: 0x0d28 }] });
+    await port.open({ baudRate: 115200 });
+    this.port = port;
+    port.addEventListener('disconnect', () => this.onClose());
+    const lines = new LineBuffer(l => this.onLine(l));
+    this.decoder = new TextDecoderStream();
+    this.readClosed = port.readable.pipeTo(this.decoder.writable).catch(() => {});
+    this.reader = this.decoder.readable.getReader();
+    (async () => {
+      try {
+        for (;;) { const { value, done } = await this.reader.read(); if (done) break; lines.push(value); }
+      } catch (e) { /* port closed */ }
+      this.onClose();
+    })();
+    this.encoder = new TextEncoderStream();
+    this.writeClosed = this.encoder.readable.pipeTo(port.writable).catch(() => {});
+    this.writer = this.encoder.writable.getWriter();
+  }
+  async send(text) { await this.writer.write(text + '\n'); }
+  async close() {
+    try { await this.reader.cancel(); } catch (e) {}
+    try { await this.writer.close(); } catch (e) {}
+    try { await this.port.close(); } catch (e) {}
+  }
+}
+
+// A pretend micro:bit that speaks the same protocol, so the page can be tried without hardware.
+class DemoLink {
+  constructor() {
+    this.kind = 'Demo'; this.name = 'Demo micro:bit'; this.onLine = () => {}; this.onClose = () => {};
+    this.d = { on: true, st: 'on', sensor: 1.4, online: -1, onlineAt: 0, protection: 0, timer: 0, spfn: 0, demo: true, ack: false, any: false, band: 'low' };
+    this.timers = [];
+  }
+  later(ms, fn) { this.timers.push(setTimeout(fn, ms)); }
+  emit(line) { this.later(0, () => this.onLine(line)); }
+  async connect() {
+    this.emit('hello;fw=3.1');
+    this.statusTimer = setInterval(() => this.emit(this.statusLine()), 2000);
+    this.later(1500, () => this.cycle());
+  }
+  uvNow() { const d = this.d; const fresh = d.onlineAt && Date.now() - d.onlineAt < 30 * 60000; return Math.max(d.sensor, fresh ? d.online : 0); }
+  bandOf(uv) { const r = Math.round(uv); return r <= 2 ? 'low' : r <= 7 ? 'modhigh' : r <= 10 ? 'vhigh' : 'extreme'; }
+  statusLine() {
+    const d = this.d; const uv = this.uvNow();
+    const fresh = d.onlineAt && Date.now() - d.onlineAt < 30 * 60000;
+    const spf = d.timer ? Math.max(0, Math.floor((d.timer - Date.now()) / 1000)) : -1;
+    return `st=${d.st};uv=${uv.toFixed(1)};sen=${d.sensor.toFixed(1)};onl=${fresh ? d.online.toFixed(1) : '-1'};band=${this.bandOf(uv)};spf=${spf};spfn=${d.spfn};fw=3.1;demo=${d.demo ? 1 : 0}`;
+  }
+  // the flowchart, sped up: a "5 minute" wait is 10 s, the reapply timer 60 s, alerts give up after 20 s
+  cycle() {
+    const d = this.d; if (!d.on) return;
+    d.st = 'reading';
+    this.later(800, () => {
+      const uv = this.uvNow(); const band = this.bandOf(uv); d.band = band;
+      const next = (ms) => this.later(ms, () => this.cycle());
+      const waitThenTimer = () => {
+        d.st = 'wait';
+        this.later(10000, () => {
+          if (d.timer && Date.now() >= d.timer) { d.timer = 0; d.protection = 0; d.st = 'alert'; this.emit('ev=reapply'); }
+          this.cycle();
+        });
+      };
+      if (band === 'low') { d.st = 'safe'; waitThenTimer(); return; }
+      if (band === 'extreme') {
+        d.st = 'alert'; d.ack = false;
+        this.waitForAck(20000, acked => { if (acked) this.emit('ev=inside'); this.standby(() => this.cycle()); });
+        return;
+      }
+      const level = band === 'vhigh' ? 2 : 1;
+      if (d.protection >= level) { d.st = 'protected'; waitThenTimer(); return; }
+      d.st = 'alert'; d.ack = false;
+      this.waitForAck(20000, acked => {
+        if (acked) { d.protection = level; d.spfn++; d.timer = Date.now() + 60000; this.emit('ev=sunscreen'); waitThenTimer(); }
+        else this.standby(() => this.cycle());
+      });
+    });
+  }
+  waitForAck(limit, done) {
+    const t0 = Date.now(); const d = this.d;
+    const poll = () => { if (!d.on) return; if (d.ack) { d.ack = false; done(true); } else if (Date.now() - t0 > limit) done(false); else this.later(200, poll); };
+    poll();
+  }
+  standby(done) {
+    const d = this.d; d.st = 'standby'; d.any = false; this.emit('ev=standby');
+    const poll = () => { if (!d.on) return; if (d.any) { d.any = false; done(); } else this.later(200, poll); };
+    poll();
+  }
+  async send(text) {
+    const d = this.d; const [key, value = ''] = text.trim().split('=');
+    switch (key) {
+      case 'uv': { const v = parseFloat(value); if (v >= 0 && v <= 20) { d.online = v; d.onlineAt = Date.now(); this.emit('ok=uv'); } else this.emit('err=uv'); break; }
+      case 'ack': d.ack = true; d.any = true; this.emit('ok=ack'); break;
+      case 'read': this.emit(this.statusLine()); break;
+      case 'ping': this.emit('pong;fw=3.1;oled=0'); break;
+      case 'demo': d.demo = value === '1'; this.emit('ok=demo'); break;
+      case 'debug': this.emit('ok=debug'); break;
+      case 'zero': this.emit('ok=zero;v=0.0'); break;
+      case 'cal': this.emit(parseFloat(value) > 0 ? 'ok=cal' : 'err=cal'); break;
+      case 'power':
+        if (value === '0' && d.on) { d.on = false; d.st = 'off'; this.emit('ev=off'); }
+        else if (value === '1' && !d.on) { d.on = true; d.st = 'on'; this.emit('ev=on'); this.later(1500, () => this.cycle()); }
+        break;
+      default: if (key) this.emit('err=unknown');
+    }
+  }
+  close() { clearInterval(this.statusTimer); this.timers.forEach(clearTimeout); }
+}
+
+// ---------- state & storage ----------
+const store = {
+  load(k, fb) { try { const v = localStorage.getItem(k); return v === null ? fb : JSON.parse(v); } catch (e) { return fb; } },
+  save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } },
+};
+const state = {
+  link: null,
+  device: { fw: '', status: null, statusAt: 0, debug: false },
+  online: store.load('sunburn.online', null),   // { uv, at, lat, lon, place, tz, peak, peakAt, hourly:[{t, uv}] }
+  settings: Object.assign({ autoSend: true, intervalMin: 10, location: null, notify: false }, store.load('sunburn.settings', {})),
+  events: store.load('sunburn.events', []),      // [{ t, ev, msg }]
+  lastSentAt: store.load('sunburn.lastSent', 0),
+  consoleLines: [],
+  showAllEvents: false, showTable: false,
+};
+const saveSettings = () => store.save('sunburn.settings', state.settings);
+
+// ---------- helpers ----------
+const $ = id => document.getElementById(id);
+function el(tag, attrs, ...children) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) { if (k === 'class') n.className = v; else if (k.startsWith('on')) n.addEventListener(k.slice(2), v); else n.setAttribute(k, v); }
+  for (const c of children) if (c !== null && c !== undefined) n.append(c.nodeType ? c : document.createTextNode(String(c)));
+  return n;
+}
+function svgEl(tag, attrs, ...children) {
+  const n = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [k, v] of Object.entries(attrs || {})) n.setAttribute(k, v);
+  for (const c of children) if (c !== null && c !== undefined) n.append(c.nodeType ? c : document.createTextNode(String(c)));
+  return n;
+}
+const fmtTime = t => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+const fmtDay = key => { const [y, m, d] = key.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }); };
+const dayKey = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+function ago(t) {
+  if (!t) return '';
+  const s = Math.round((Date.now() - t) / 1000);
+  if (s < 5) return 'just now'; if (s < 60) return `${s} s ago`;
+  const m = Math.round(s / 60); if (m < 60) return `${m} min ago`;
+  const h = Math.round(m / 60); return h < 48 ? `${h} h ago` : `${Math.round(h / 24)} days ago`;
+}
+function fmtCountdown(sec) {
+  if (sec < 0) return null;
+  const h = Math.floor(sec / 3600), m = Math.floor(sec / 60) % 60, s = sec % 60;
+  return h ? `${h}h ${String(m).padStart(2, '0')}m` : m ? `${m} min ${String(s).padStart(2, '0')} s` : `${s} s`;
+}
+let toastTimer;
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600); }
+function pushConsole(line) {
+  state.consoleLines.push(`${fmtTime(Date.now())}  ${line}`);
+  if (state.consoleLines.length > 200) state.consoleLines.shift();
+  const c = $('console'); c.textContent = state.consoleLines.join('\n'); c.scrollTop = c.scrollHeight;
+}
+
+// ---------- device link ----------
+async function connectWith(link) {
+  if (state.link) await disconnect();
+  link.onLine = handleLine;
+  link.onClose = () => { if (state.link === link) { state.link = null; state.device.status = null; pushConsole('-- disconnected'); toast(`${link.kind} link closed`); render(); } };
+  try {
+    await link.connect();
+  } catch (e) {
+    if (e && e.name === 'NotFoundError') return;   // the chooser was cancelled
+    toast(`Could not connect: ${e.message || e}`); return;
+  }
+  state.link = link; state.device.status = null; state.device.fw = '';
+  pushConsole(`-- connected via ${link.kind} (${link.name})`);
+  render();
+  setTimeout(() => { if (state.link === link && !state.device.fw) send('ping'); }, 2500);
+}
+async function disconnect() {
+  const link = state.link; if (!link) return;
+  state.link = null; state.device.status = null;
+  try { await link.close(); } catch (e) {}
+  pushConsole('-- disconnected'); render();
+}
+async function send(text) {
+  if (!state.link) { toast('Not connected'); return false; }
+  pushConsole('> ' + text);
+  try { await state.link.send(text); return true; }
+  catch (e) { toast(`Send failed: ${e.message || e}`); return false; }
+}
+function handleLine(line) {
+  pushConsole('< ' + line);
+  if (line.startsWith('st=')) {
+    state.device.status = parseKv(line); state.device.statusAt = Date.now();
+  } else if (line.startsWith('ev=')) {
+    const kv = parseKv(line); addEvent(kv.ev, kv.msg || '');
+  } else if (line.startsWith('hello') || line.startsWith('pong')) {
+    const kv = parseKv(line); state.device.fw = kv.fw || state.device.fw;
+    if (line.startsWith('hello')) sendUvIfFresh('connected');
+  } else if (line.startsWith('ok=') || line.startsWith('err=')) {
+    const [k, v] = line.split('=');
+    if (k === 'err') toast(`Device replied: ${line}`);
+    else if (v === 'cal') toast('Sensor calibrated to the live UV index');
+    else if (v === 'zero') toast('Sensor zero point set');
+  }
+  render();
+}
+function addEvent(ev, msg) {
+  state.events.push({ t: Date.now(), ev, msg });
+  if (state.events.length > 3000) state.events.splice(0, state.events.length - 3000);
+  store.save('sunburn.events', state.events);
+  notify(ev);
+}
+
+// ---------- live UV ----------
+const FRESH_MS = 60 * 60000;
+async function fetchUv(lat, lon) {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=uv_index&hourly=uv_index&forecast_days=1&timezone=auto`;
+  const r = await fetch(url, { signal: AbortSignal.timeout(12000) }); if (!r.ok) throw new Error(`Open-Meteo replied ${r.status}`);
+  const j = await r.json();
+  const hourly = j.hourly.time.map((t, i) => ({ t, uv: j.hourly.uv_index[i] })).filter(h => h.uv !== null);
+  const peak = hourly.reduce((a, h) => (h.uv > a.uv ? h : a), { uv: -1, t: '' });
+  return { uv: j.current.uv_index, at: Date.now(), lat, lon, tz: j.timezone, peak: peak.uv, peakAt: peak.t, hourly, currentTime: j.current.time };
+}
+async function placeName(lat, lon) {
+  try {
+    const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`, { signal: AbortSignal.timeout(8000) });
+    const j = await r.json();
+    return [j.city || j.locality, j.principalSubdivision || j.countryName].filter(Boolean).join(', ');
+  } catch (e) { return ''; }
+}
+async function updateUv(lat, lon, name) {
+  const card = $('uvNum'); card.style.opacity = '0.6';
+  try {
+    const data = await fetchUv(lat, lon);
+    data.place = name || `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
+    state.online = data; store.save('sunburn.online', data);
+    state.settings.location = { lat, lon, name: data.place }; saveSettings();
+    render();
+    if (state.link) sendUvIfFresh('refreshed');
+    if (!name) {
+      // the place name is decoration: show the UV first, fill the name in when it arrives
+      const found = await placeName(lat, lon);
+      if (found && state.online === data) {
+        data.place = found; store.save('sunburn.online', data);
+        state.settings.location = { lat, lon, name: found }; saveSettings();
+        render();
+      }
+    }
+  } catch (e) {
+    toast(e && e.name === 'TimeoutError' ? 'The UV service did not answer. Check the connection and try again.' : `Could not get the UV index: ${e.message || e}`);
+  } finally { card.style.opacity = ''; }
+}
+function useMyLocation() {
+  if (!navigator.geolocation) { toast('This browser has no location service. Search for a town instead.'); return; }
+  $('btnLocate').disabled = true;
+  navigator.geolocation.getCurrentPosition(
+    pos => { $('btnLocate').disabled = false; updateUv(pos.coords.latitude, pos.coords.longitude, ''); },
+    err => { $('btnLocate').disabled = false; toast(err.code === 1 ? 'Location permission was refused. Search for a town instead.' : 'Could not get your location. Search for a town instead.'); },
+    { enableHighAccuracy: false, timeout: 15000, maximumAge: 5 * 60000 });
+}
+async function searchPlace() {
+  const q = $('placeInput').value.trim(); const list = $('searchResults'); list.replaceChildren();
+  if (!q) return;
+  try {
+    const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=5&language=en&format=json`, { signal: AbortSignal.timeout(10000) });
+    const j = await r.json();
+    const results = j.results || [];
+    if (!results.length) { toast('No place found with that name'); return; }
+    for (const p of results) {
+      const label = [p.name, p.admin1, p.country].filter(Boolean).join(', ');
+      list.append(el('li', {}, el('button', { class: 'btn small', onclick: () => { list.replaceChildren(); $('placeInput').value = ''; updateUv(p.latitude, p.longitude, [p.name, p.admin1].filter(Boolean).join(', ')); } }, label)));
+    }
+  } catch (e) { toast('Place search failed'); }
+}
+function refreshUv() {
+  const loc = state.settings.location;
+  if (loc) updateUv(loc.lat, loc.lon, loc.name); else useMyLocation();
+}
+function onlineIsFresh() { return state.online && Date.now() - state.online.at < FRESH_MS; }
+async function sendUvIfFresh(reason) {
+  if (!state.link || !onlineIsFresh()) return false;
+  const ok = await send(`uv=${state.online.uv.toFixed(1)}`);
+  if (ok) { state.lastSentAt = Date.now(); store.save('sunburn.lastSent', state.lastSentAt); render(); }
+  return ok;
+}
+function autoTick() {
+  const due = Date.now() - state.lastSentAt > state.settings.intervalMin * 60000;
+  if (state.settings.autoSend && state.link && due) sendUvIfFresh('interval');
+  // keep the online value itself fresh while the page is open (every 20 minutes)
+  if (state.settings.location && state.online && Date.now() - state.online.at > 20 * 60000 && !document.hidden) refreshUv();
+  renderAges();
+}
+
+// ---------- notifications ----------
+async function setNotify(on) {
+  if (on && 'Notification' in window && Notification.permission !== 'granted') {
+    const p = await Notification.requestPermission();
+    if (p !== 'granted') { toast('Notifications were not allowed'); $('notifyTog').checked = false; return; }
+  }
+  state.settings.notify = on && 'Notification' in window; saveSettings();
+}
+function notify(ev) {
+  if (!state.settings.notify || !('Notification' in window) || Notification.permission !== 'granted') return;
+  const text = { reapply: 'Reapply sunscreen: the 2 hour timer ran out.', sunscreen: 'Sunscreen on. The device will remind you in 2 hours.', inside: 'Extreme UV: go inside now.', error: 'The UV sensor needs checking.' }[ev];
+  if (text) try { new Notification('Sunburn device', { body: text }); } catch (e) {}
+}
+
+// ---------- history ----------
+function dayStats() {
+  const days = {};
+  for (const e of state.events) {
+    const k = dayKey(e.t); const d = days[k] || (days[k] = { sunscreen: 0, reapply: 0, inside: 0, error: 0, standby: 0 });
+    if (d[e.ev] !== undefined) d[e.ev]++;
+  }
+  return days;
+}
+function lastNDays(n) {
+  const out = []; const now = new Date();
+  for (let i = n - 1; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i); out.push(dayKey(d.getTime())); }
+  return out;
+}
+
+// ---------- rendering ----------
+function render() {
+  renderLink(); renderUv(); renderDevice(); renderHistory(); renderEvents(); renderAges();
+}
+function renderLink() {
+  const link = state.link;
+  $('linkPill').classList.toggle('is-on', !!link);
+  $('linkText').textContent = link ? `${link.kind}: ${link.name}${state.device.fw ? ` · firmware ${state.device.fw}` : ''}` : 'Not connected';
+  $('btnDisconnect').hidden = !link;
+  $('btnBle').hidden = !!link; $('btnSerial').hidden = !!link; $('btnDemo').hidden = !!link;
+  for (const id of ['btnAck', 'btnRead', 'btnDemoTimings', 'btnPower', 'btnZero', 'btnPing', 'btnCmd', 'cmdInput', 'debugTog']) $(id).disabled = !link;
+  $('btnCal').disabled = !link || !onlineIsFresh();
+}
+function renderUv() {
+  const o = state.online;
+  const num = $('uvNum'), band = $('uvBand');
+  if (!o) {
+    num.textContent = '–'; num.classList.add('empty');
+    band.replaceChildren(el('span', { class: 'sw' }), el('span', {}, 'No data yet'));
+    $('uvPlace').textContent = 'Use your location or search for a town to get the live UV index.';
+    $('uvPeak').textContent = ''; $('uvSource').textContent = '';
+    $('curveChart').replaceChildren();
+  } else {
+    const b = bandFor(o.uv);
+    num.textContent = o.uv.toFixed(1); num.classList.remove('empty');
+    band.replaceChildren(el('span', { class: 'sw', style: `background:${b.color}` }), el('span', {}, b.name));
+    band.setAttribute('title', `WHO band: ${b.name}`);
+    const stale = !onlineIsFresh();
+    $('uvPlace').replaceChildren(el('b', {}, o.place), ` · updated ${ago(o.at)}`, stale ? ' · out of date, refresh it' : '');
+    $('uvPlace').classList.toggle('muted', stale);
+    if (o.peak >= 0) {
+      const peakB = bandFor(o.peak);
+      $('uvPeak').replaceChildren('Peak today ', el('b', {}, o.peak.toFixed(1)), ` (${peakB.name}) around ${o.peakAt.slice(11, 16)}`);
+    } else $('uvPeak').textContent = '';
+    $('uvSource').textContent = 'Open-Meteo';
+    renderCurve(o);
+  }
+  $('autoSend').checked = !!state.settings.autoSend;
+  $('sendEvery').value = String(state.settings.intervalMin);
+  $('btnSendNow').disabled = !state.link || !onlineIsFresh();
+  $('lastSent').textContent = state.lastSentAt ? `Last sent ${ago(state.lastSentAt)}` : (state.link ? 'Nothing sent yet' : '');
+}
+function renderDevice() {
+  const s = state.device.status; const link = state.link;
+  const stateBox = $('devState'), stats = $('devStats');
+  if (!link) {
+    $('devStateT').textContent = 'Not connected'; $('devStateD').textContent = 'Connect the micro:bit to see what it is doing.';
+    stateBox.querySelector('.icon').textContent = '⌚'; stateBox.classList.remove('alert'); stats.replaceChildren();
+    $('devAge').textContent = ''; return;
+  }
+  if (!s) {
+    $('devStateT').textContent = 'Waiting for the device'; $('devStateD').textContent = 'It sends its status every 2 seconds.';
+    stateBox.querySelector('.icon').textContent = '⏳'; stateBox.classList.remove('alert'); stats.replaceChildren(); return;
+  }
+  const step = STEPS[s.st] || [s.st, '', '•'];
+  $('devStateT').textContent = step[0]; $('devStateD').textContent = step[1];
+  stateBox.querySelector('.icon').textContent = step[2];
+  stateBox.classList.toggle('alert', s.st === 'alert' || s.st === 'error');
+  const uv = parseFloat(s.uv), sen = parseFloat(s.sen), onl = parseFloat(s.onl), spf = parseInt(s.spf, 10);
+  const b = isFinite(uv) ? bandFor(uv) : null;
+  const tile = (l, v, sub) => el('div', { class: 'stat' }, el('div', { class: 'l' }, l), el('div', { class: 'v' }, v, sub ? el('small', {}, ' ' + sub) : null));
+  stats.replaceChildren(
+    tile('UV the device is using', isFinite(uv) ? uv.toFixed(1) : '–', b ? b.name : ''),
+    tile('Its own sensor', isFinite(sen) ? sen.toFixed(1) : '–'),
+    tile('From this app', onl >= 0 ? onl.toFixed(1) : 'none in the last 30 min'),
+    tile('Sunscreen due in', spf >= 0 ? fmtCountdown(spf) : 'no timer', spf >= 0 ? `at ${fmtTime(Date.now() + spf * 1000)}` : ''),
+    tile('Applications since power-on', s.spfn || '0'),
+    tile('Timings', s.demo === '1' ? 'demo (fast)' : 'normal'),
+  );
+  $('btnDemoTimings').textContent = `Demo timings: ${s.demo === '1' ? 'on' : 'off'}`;
+  $('btnPower').textContent = s.st === 'off' ? 'Turn on' : 'Turn off';
+}
+function renderAges() {
+  if (state.online) { const stale = !onlineIsFresh(); $('uvPlace').replaceChildren(el('b', {}, state.online.place), ` · updated ${ago(state.online.at)}`, stale ? ' · out of date, refresh it' : ''); }
+  $('lastSent').textContent = state.lastSentAt ? `Last sent ${ago(state.lastSentAt)}` : (state.link ? 'Nothing sent yet' : '');
+  if (state.link && state.device.statusAt) {
+    const age = Date.now() - state.device.statusAt;
+    $('devAge').textContent = age > 8000 ? `no status for ${Math.round(age / 1000)} s` : `updated ${ago(state.device.statusAt)}`;
+  }
+}
+function renderEvents() {
+  const list = $('eventList'); list.replaceChildren();
+  const evs = state.events.slice().reverse();
+  const shown = state.showAllEvents ? evs : evs.slice(0, 30);
+  for (const e of shown) {
+    const lab = EVENT_LABELS[e.ev] || [e.ev, ''];
+    const when = dayKey(e.t) === dayKey(Date.now()) ? fmtTime(e.t) : new Date(e.t).toLocaleDateString([], { day: 'numeric', month: 'short' });
+    list.append(el('li', {}, el('time', {}, when), el('div', {}, el('div', { class: 'e' }, lab[0]), el('div', { class: 'm' }, e.msg || lab[1]))));
+  }
+  $('evHint').hidden = evs.length > 0;
+  $('btnMoreEv').hidden = evs.length <= 30 || state.showAllEvents;
+}
+
+// ---------- charts ----------
+function attachTooltip(container) {
+  let tip = container.querySelector('.tooltip');
+  if (!tip) { tip = el('div', { class: 'tooltip' }); container.append(tip); }
+  return {
+    show(x, y, strong, rest) {
+      tip.replaceChildren(el('b', {}, strong), el('br'), rest); tip.style.display = 'block';
+      const half = tip.offsetWidth / 2, w = container.clientWidth;   // keep the tooltip inside the chart
+      tip.style.left = Math.max(half, Math.min(w - half, x)) + 'px'; tip.style.top = y + 'px';
+    },
+    hide() { tip.style.display = 'none'; },
+  };
+}
+function renderHistory() {
+  const days = dayStats(); const keys = lastNDays(14); const today = keys[keys.length - 1];
+  const t = days[today] || { sunscreen: 0, reapply: 0, inside: 0, error: 0 };
+  const tile = (l, v) => el('div', { class: 'stat' }, el('div', { class: 'l' }, l), el('div', { class: 'v' }, String(v)));
+  const month = Object.entries(days).filter(([k]) => k.slice(0, 7) === today.slice(0, 7)).reduce((a, [, d]) => a + d.sunscreen, 0);
+  $('todayStats').replaceChildren(tile('Sunscreen today', t.sunscreen), tile('Reapply reminders today', t.reapply), tile('Went inside today', t.inside), tile('Sunscreen this month', month));
+
+  // bar chart: one series, so no legend; <= 24px bars, rounded data end, 2px surface gap, hairline grid, tooltip + table twin
+  const W = Math.max(320, $('histChart').clientWidth || 700), H = 200, padL = 28, padR = 8, padT = 14, padB = 26;   // 1 unit = 1 px, so text stays readable
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const values = keys.map(k => (days[k] ? days[k].sunscreen : 0));
+  const maxV = Math.max(3, ...values);
+  const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Sunscreen applications per day, last 14 days' });
+  const y = v => padT + plotH - (v / maxV) * plotH;
+  const ticks = maxV <= 5 ? [...Array(maxV + 1).keys()] : [0, Math.round(maxV / 2), maxV];
+  for (const tv of ticks) {
+    svg.append(svgEl('line', { x1: padL, x2: W - padR, y1: y(tv), y2: y(tv), class: tv === 0 ? 'base' : 'grid-line' }));
+    svg.append(svgEl('text', { x: padL - 6, y: y(tv) + 4, 'text-anchor': 'end', class: 'tick' }, tv));
+  }
+  const slot = plotW / keys.length, barW = Math.min(24, slot - 2);
+  const container = $('histChart'); container.replaceChildren(svg);
+  const tip = attachTooltip(container);
+  const maxIdx = values.indexOf(Math.max(...values));
+  keys.forEach((k, i) => {
+    const v = values[i], cx = padL + slot * i + slot / 2, x = cx - barW / 2, top = y(v), h = padT + plotH - top;
+    const label = `${v} application${v === 1 ? '' : 's'}`;
+    const g = svgEl('g');
+    const hit = svgEl('rect', { x: padL + slot * i, y: padT, width: slot, height: plotH, class: 'bar-hit', tabindex: '0', role: 'img', 'aria-label': `${fmtDay(k)}: ${label}` });
+    let bar;
+    if (v > 0) {
+      const r = Math.min(4, h);
+      bar = svgEl('path', { class: 'bar', d: `M${x},${padT + plotH} V${top + r} a${r},${r} 0 0 1 ${r},-${r} h${barW - 2 * r} a${r},${r} 0 0 1 ${r},${r} V${padT + plotH} Z` });
+    } else bar = svgEl('rect', { class: 'bar', x, y: padT + plotH - 1, width: barW, height: 1, opacity: 0.35 });
+    g.append(hit, bar);
+    if (v > 0 && (i === maxIdx || k === today)) g.append(svgEl('text', { x: cx, y: top - 5, 'text-anchor': 'middle', class: 'lab' }, v));
+    const d = new Date(k + 'T00:00:00');
+    if (slot >= 52 || i % 2 === keys.length % 2) svg.append(svgEl('text', { x: cx, y: H - 8, 'text-anchor': 'middle', class: 'tick' }, d.toLocaleDateString([], { day: 'numeric', month: 'short' })));
+    const showTip = () => { const rect = container.getBoundingClientRect(); const sx = rect.width / W; tip.show(cx * sx, top * sx, label, fmtDay(k)); };
+    hit.addEventListener('pointerenter', showTip); hit.addEventListener('focus', showTip);
+    hit.addEventListener('pointerleave', tip.hide); hit.addEventListener('blur', tip.hide);
+    svg.append(g);
+  });
+  // table twin
+  const tbl = $('histTable'); tbl.replaceChildren();
+  const table = el('table', { class: 'tbl' }, el('thead', {}, el('tr', {}, el('th', {}, 'Day'), el('th', { class: 'n' }, 'Sunscreen'), el('th', { class: 'n' }, 'Reapply reminders'), el('th', { class: 'n' }, 'Went inside'), el('th', { class: 'n' }, 'Sensor problems'))));
+  const body = el('tbody');
+  for (const k of keys.slice().reverse()) { const d = days[k] || { sunscreen: 0, reapply: 0, inside: 0, error: 0 }; body.append(el('tr', {}, el('td', {}, fmtDay(k)), el('td', { class: 'n' }, d.sunscreen), el('td', { class: 'n' }, d.reapply), el('td', { class: 'n' }, d.inside), el('td', { class: 'n' }, d.error))); }
+  table.append(body); tbl.append(table); tbl.hidden = !state.showTable;
+  $('btnTable').textContent = state.showTable ? 'Hide table' : 'Show table';
+}
+function renderCurve(o) {
+  // today's UV by hour: one line, area wash, marker on the current hour, band thresholds as hairlines, crosshair tooltip
+  const W = Math.max(320, $('curveChart').clientWidth || 700), H = 150, padL = 26, padR = 64, padT = 12, padB = 22;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const pts = o.hourly.map(h => ({ hour: parseInt(h.t.slice(11, 13), 10), uv: h.uv }));
+  if (!pts.length) { $('curveChart').replaceChildren(); return; }
+  const maxV = Math.max(11, Math.ceil(o.peak + 1));
+  const x = h => padL + (h / 23) * plotW, y = v => padT + plotH - (v / maxV) * plotH;
+  const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': `Today's UV index by hour, peak ${o.peak.toFixed(1)} around ${o.peakAt.slice(11, 16)}` });
+  svg.append(svgEl('line', { x1: padL, x2: padL + plotW, y1: y(0), y2: y(0), class: 'base' }));
+  for (const [v, name] of [[3, 'Moderate'], [8, 'Very high'], [11, 'Extreme']]) {
+    if (v > maxV) continue;
+    svg.append(svgEl('line', { x1: padL, x2: padL + plotW, y1: y(v), y2: y(v), class: 'grid-line' }));
+    svg.append(svgEl('text', { x: padL + plotW + 6, y: y(v) + 4, class: 'tick' }, `${v} ${name}`));
+  }
+  const path = pts.map((p, i) => `${i ? 'L' : 'M'}${x(p.hour).toFixed(1)},${y(p.uv).toFixed(1)}`).join(' ');
+  svg.append(svgEl('path', { class: 'area', d: `${path} L${x(pts[pts.length - 1].hour)},${y(0)} L${x(pts[0].hour)},${y(0)} Z` }));
+  svg.append(svgEl('path', { class: 'line', d: path }));
+  for (const h of [0, 6, 12, 18]) svg.append(svgEl('text', { x: x(h), y: H - 6, 'text-anchor': 'middle', class: 'tick' }, `${String(h).padStart(2, '0')}:00`));
+  const nowHour = o.currentTime ? parseInt(o.currentTime.slice(11, 13), 10) : new Date().getHours();
+  const cur = pts.find(p => p.hour === nowHour);
+  if (cur) svg.append(svgEl('circle', { cx: x(cur.hour), cy: y(cur.uv), r: 5, class: 'marker' }));
+  const xhair = svgEl('line', { class: 'xhair', y1: padT, y2: padT + plotH, x1: -10, x2: -10 });
+  svg.append(xhair);
+  const container = $('curveChart'); container.replaceChildren(svg);
+  const tip = attachTooltip(container);
+  const hitArea = svgEl('rect', { x: padL, y: padT, width: plotW, height: plotH, fill: 'transparent' });
+  svg.append(hitArea);
+  hitArea.addEventListener('pointermove', ev => {
+    const rect = svg.getBoundingClientRect(); const sx = rect.width / W;
+    const hour = Math.max(0, Math.min(23, Math.round(((ev.clientX - rect.left) / sx - padL) / plotW * 23)));
+    const p = pts.find(q => q.hour === hour); if (!p) return;
+    xhair.setAttribute('x1', x(hour)); xhair.setAttribute('x2', x(hour));
+    tip.show(x(hour) * sx, y(p.uv) * sx, `UV ${p.uv.toFixed(1)} · ${bandFor(p.uv).name}`, `${String(hour).padStart(2, '0')}:00`);
+  });
+  hitArea.addEventListener('pointerleave', () => { tip.hide(); xhair.setAttribute('x1', -10); xhair.setAttribute('x2', -10); });
+}
+
+// ---------- CSV export ----------
+function exportCsv() {
+  const rows = [['time', 'event', 'note'], ...state.events.map(e => [new Date(e.t).toISOString(), e.ev, e.msg || ''])];
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const a = el('a', { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })), download: `sunburn-events-${dayKey(Date.now())}.csv` });
+  document.body.append(a); a.click(); a.remove();
+}
+
+// ---------- wiring up ----------
+function init() {
+  if (!window.isSecureContext) $('secureHint').hidden = false;
+  const hints = [];
+  if (!navigator.bluetooth) { $('btnBle').disabled = true; hints.push('Web Bluetooth is not available in this browser: use Chrome or Edge (Bluefy on iPhone).'); }
+  if (!navigator.serial) { $('btnSerial').disabled = true; hints.push('USB needs Chrome or Edge on a computer.'); }
+  if (hints.length) { $('supportHint').textContent = hints.join(' '); $('supportHint').hidden = false; }
+
+  $('btnBle').addEventListener('click', () => connectWith(new BleLink()));
+  $('btnSerial').addEventListener('click', () => connectWith(new SerialLink()));
+  $('btnDemo').addEventListener('click', () => connectWith(new DemoLink()));
+  $('btnDisconnect').addEventListener('click', disconnect);
+  $('btnLocate').addEventListener('click', useMyLocation);
+  $('btnSearch').addEventListener('click', searchPlace);
+  $('placeInput').addEventListener('keydown', e => { if (e.key === 'Enter') searchPlace(); });
+  $('btnRefresh').addEventListener('click', refreshUv);
+  $('autoSend').addEventListener('change', e => { state.settings.autoSend = e.target.checked; saveSettings(); if (e.target.checked) autoTick(); });
+  $('sendEvery').addEventListener('change', e => { state.settings.intervalMin = parseInt(e.target.value, 10); saveSettings(); });
+  $('btnSendNow').addEventListener('click', () => sendUvIfFresh('manual'));
+  $('btnAck').addEventListener('click', () => send('ack'));
+  $('btnRead').addEventListener('click', () => send('read'));
+  $('btnDemoTimings').addEventListener('click', () => { const s = state.device.status; send(`demo=${s && s.demo === '1' ? 0 : 1}`); });
+  $('btnPower').addEventListener('click', () => { const s = state.device.status; send(`power=${s && s.st === 'off' ? 1 : 0}`); });
+  $('btnZero').addEventListener('click', () => { if (confirm('Cover the sensor completely (dark), then press OK.')) send('zero'); });
+  $('btnCal').addEventListener('click', () => { if (state.online && confirm(`Hold the sensor in full sun, then press OK to set its scale so it reads ${state.online.uv.toFixed(1)} (the live UV index here).`)) send(`cal=${state.online.uv.toFixed(1)}`); });
+  $('btnPing').addEventListener('click', () => send('ping'));
+  $('debugTog').addEventListener('change', e => send(`debug=${e.target.checked ? 1 : 0}`));
+  $('notifyTog').addEventListener('change', e => setNotify(e.target.checked));
+  $('notifyTog').checked = !!state.settings.notify && 'Notification' in window && Notification.permission === 'granted';
+  $('btnCmd').addEventListener('click', () => { const v = $('cmdInput').value.trim(); if (v) { send(v); $('cmdInput').value = ''; } });
+  $('cmdInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnCmd').click(); });
+  $('btnTable').addEventListener('click', () => { state.showTable = !state.showTable; renderHistory(); });
+  $('btnCsv').addEventListener('click', exportCsv);
+  $('btnClear').addEventListener('click', () => { if (confirm('Delete all stored events and history on this browser?')) { state.events = []; store.save('sunburn.events', []); render(); } });
+  $('btnMoreEv').addEventListener('click', () => { state.showAllEvents = true; renderEvents(); });
+
+  render();
+  if (state.settings.location && (!state.online || !onlineIsFresh())) refreshUv();
+  setInterval(autoTick, 15000);
+  setInterval(renderAges, 1000);
+  window.addEventListener('resize', () => { document.querySelectorAll('.tooltip').forEach(t => { t.style.display = 'none'; }); renderHistory(); if (state.online) renderCurve(state.online); });
+}
+init();
+</script>
+</body>
+</html>
