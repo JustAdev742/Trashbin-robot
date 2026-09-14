@@ -1,36 +1,305 @@
 {
-  "title": "Sunburn device",
-  "subtitle": "micro:bit firmware 3.1 · the whole program, block by block",
-  "sections": [
-    { "num": 1, "title": "Start here: settings", "blocks": ["pxt-on-start"],
-      "text": "The on start block. First every setting the program uses (sensor type, servo, screen, UV bands, timings), then the start-up steps: this is \"Device turns on\" on the flowchart. Change hardware and timings here and nowhere else." },
-    { "num": 2, "title": "The flowchart", "blocks": ["device_forever", "fn runFlowchart", "fn readUvSensor", "fn sensorReadingInRange", "fn showCheckSensor", "fn phoneSendingOnlineUv", "fn chooseUvValue", "fn uvBand", "fn showHappyFace", "fn moderateOrHighUv", "fn veryHighUv", "fn extremeUv", "fn sunscreenApplied", "fn start2HourReapplyTimer", "fn alreadyProtected", "fn wait5Minutes", "fn reapplyTimerExpired", "fn showReapplySunscreen", "fn deviceTurnsOn", "fn deviceTurnsOff"],
-      "text": "forever runs runFlowchart again and again. runFlowchart is the whole flowchart from top to bottom: read the UV sensor, sensor in range?, phone sending online UV?, UV index?, then one of the four branches, wait 5 minutes, reapply timer expired?. Every box and decision is a function with the same name, in the same order as the flowchart." },
-    { "num": 3, "title": "Buttons", "blocks": ["on Button.A", "on Button.B", "on Button.AB"],
-      "text": "A = done (sunscreen is on / going inside); A also skips a message scrolling on the LEDs, and while waiting it shows the UV index and the countdown. B = wake from standby. A+B = device turns off, or on again." },
-    { "num": 4, "title": "Alerts", "blocks": ["fn flashAndBeepUntilA", "fn stillWaitingForA", "fn tapArmUntilA", "fn standbyUntilButton"],
-      "text": "Flash and beep, tap the arm with the servo, and standby. Each one keeps going until A is pressed (or the app sends \"ack\"), the device is turned off, or its time limit runs out. No answer within the time limit means the device is probably not being worn, so it goes to standby until a button is pressed." },
-    { "num": 5, "title": "Screen and LEDs", "blocks": ["fn showUvReading", "fn uvBandName", "fn showLedStatus", "fn showMessage", "fn ledsAllOn", "fn oledHeader", "fn oledShowMessage", "fn oledFooter"],
-      "text": "What the 5x5 LEDs show, and what the optional OLED screen shows: the UV number, the band, messages and the countdowns. Messages scroll across the LEDs when there is no OLED." },
-    { "num": 6, "title": "Sound and servo", "blocks": ["fn setupSound", "fn beep", "fn servoAngle", "fn servoOff", "fn servoTapOnce"],
-      "text": "Beeps on the V2 speaker (or a buzzer on P0), and the servo on P2 whose arm taps the wrist." },
-    { "num": 7, "title": "Bluetooth and serial", "blocks": ["fn advertiseOverBluetooth", "bluetooth_on_connected", "bluetooth_on_disconnected", "bluetooth_on_data_received", "serial_on_data_received", "every_interval", "fn sendLine", "fn sendEvent", "fn sendStatus", "fn handleCommand", "fn calibrateToKnownUv"],
-      "text": "Talks to the phone app (Bluetooth UART) and to the USB serial console with the same text lines. Out every 2 s: st=wait;uv=7.3;sen=7.1;onl=6.5;band=vhigh;spf=5400;spfn=3;fw=3.1;demo=0. Out on events: ev=on, off, sunscreen, reapply, inside, standby, error. In, one per line: uv=6.5, ack, zero, cal=7, demo=1, power=0, debug=1, ping, read." },
-    { "num": 8, "title": "Helpers", "blocks": ["fn applySensorPreset", "fn applyTimings", "fn sortNumbers", "fn formatNumber", "fn formatTime", "fn twoDigits", "fn reapplyCountdownText", "fn cleanText", "fn isBlank", "fn debugLog"],
-      "text": "Small tools used by the rest: sensor presets, the timings, sorting, number and time formatting, tidying up commands, and the debug lines (send debug=1 to see them)." },
-    { "num": 9, "title": "OLED screen driver (optional)", "blocks": ["fn setupOled", "fn oledInitCommands", "fn loadFont", "fn buildNibbleTable", "fn fontByte", "fn oledCommand", "fn oledData", "fn oledSetPosition", "fn oledClear", "fn oledWriteText", "fn oledWriteRow", "fn oledWriteBig"],
-      "text": "Only used if you add a 128x64 I2C screen (SSD1306 or SH1106) on P19/P20. Draws text on it without needing an extension. The program detects the screen at start-up and works exactly the same without one." }
+ "title": "Sunburn device",
+ "subtitle": "every block of the program that runs on the wrist, explained in plain English",
+ "story": "The Sunburn device is a wearable built on a BBC micro:bit, a small computer with 25 lights and two buttons. It measures the sun's UV with a sensor, checks the online UV index for where you are through a phone, and then flashes, beeps or taps your arm until you put sunscreen on. Two hours later it reminds you to reapply. The program that does all this is built from 74 coloured blocks. Every one of them is on these sheets, with a note saying what it does.",
+ "howto": "Each picture is one block of the program, exactly as it looks in the MakeCode editor where the program is built by snapping coloured pieces together. A block is read from top to bottom. Under each picture: the block's name, what kind of block it is, what it does, which other blocks use it (Used by) and which blocks it calls on (Uses). This sheet is the whole program at a glance: nine numbered sections. Sections 1 and 2 are the plan the device follows; sections 3 to 9 are the parts that plan calls on.",
+ "glossary": [
+  [
+   "UV index",
+   "How strong the sun's burning rays are, from 0 (none) to 11 and above (extreme). Protection is needed from 3 upwards, even on cool or cloudy days."
   ],
-  "eventLabels": {
-    "pxt-on-start": { "name": "on start", "kind": "Runs once when the micro:bit powers up" },
-    "device_forever": { "name": "forever", "kind": "Runs again and again, for ever" },
-    "on Button.A": { "name": "on button A pressed", "kind": "Event: runs each time A is pressed" },
-    "on Button.B": { "name": "on button B pressed", "kind": "Event: runs each time B is pressed" },
-    "on Button.AB": { "name": "on button A+B pressed", "kind": "Event: runs when A and B are pressed together" },
-    "bluetooth_on_connected": { "name": "on bluetooth connected", "kind": "Event: a phone or computer connected" },
-    "bluetooth_on_disconnected": { "name": "on bluetooth disconnected", "kind": "Event: the phone went away" },
-    "bluetooth_on_data_received": { "name": "on bluetooth data received", "kind": "Event: a line of text arrived over Bluetooth" },
-    "serial_on_data_received": { "name": "on serial data received", "kind": "Event: a line of text arrived over USB" },
-    "every_interval": { "name": "every 2000 ms", "kind": "Runs every 2 seconds in the background" }
+  [
+   "micro:bit",
+   "The small computer the program runs on. It has a 5 by 5 grid of lights, buttons A and B, and sockets called pins (P0, P1, P2) that other parts plug into."
+  ],
+  [
+   "Block",
+   "One instruction of the program. Blocks snap together and run in order from top to bottom. A block with a name at the top (function) is a step that other blocks can call on."
+  ],
+  [
+   "Sensor",
+   "The part that measures UV. It gives a voltage, which the program turns into a UV index number."
+  ],
+  [
+   "Servo",
+   "A small motor with an arm. Here it taps the wearer's wrist when the sun is extreme."
+  ],
+  [
+   "Bluetooth and USB",
+   "The two ways the wearable talks to a phone or a laptop. The phone app sends the online UV index; the wearable sends back what it is doing."
+  ],
+  [
+   "OLED",
+   "An optional small screen. Without one, the grid of lights does the job."
+  ],
+  [
+   "ms and Hz",
+   "ms are milliseconds, thousandths of a second. Hz sets how high a beep sounds."
+  ],
+  [
+   "Demo timings",
+   "Much shorter waits (seconds instead of minutes and hours) so the whole day can be shown in a few minutes at a demo."
+  ],
+  [
+   "Names in the blocks",
+   "Words like uvSampleCount are the program's own names for its settings and memory. Read them as English: uv sample count is how many readings to take."
+  ]
+ ],
+ "sections": [
+  {
+   "num": 1,
+   "title": "Start here: settings",
+   "blocks": [
+    "pxt-on-start"
+   ],
+   "text": "This block runs first, the moment the device is switched on. It holds every setting: which UV sensor is fitted, how the sound and the tapping arm are wired, the UV levels that count as low, moderate, very high and extreme, and how long each wait is. Then it starts everything up. To change how the device behaves, this is the only place to look."
+  },
+  {
+   "num": 2,
+   "title": "The flowchart",
+   "blocks": [
+    "device_forever",
+    "fn runFlowchart",
+    "fn readUvSensor",
+    "fn sensorReadingInRange",
+    "fn showCheckSensor",
+    "fn phoneSendingOnlineUv",
+    "fn chooseUvValue",
+    "fn uvBand",
+    "fn showHappyFace",
+    "fn moderateOrHighUv",
+    "fn veryHighUv",
+    "fn extremeUv",
+    "fn sunscreenApplied",
+    "fn start2HourReapplyTimer",
+    "fn alreadyProtected",
+    "fn wait5Minutes",
+    "fn reapplyTimerExpired",
+    "fn showReapplySunscreen",
+    "fn deviceTurnsOn",
+    "fn deviceTurnsOff"
+   ],
+   "text": "The plan the device follows all day, taken straight from the Sunburn Flowchart. Every box and every question on the flowchart is one block here, with the same name, in the same order: read the UV sensor, check the reading makes sense, ask the phone for the online UV index, decide how strong the sun is, then react. The forever block keeps the plan running round and round."
+  },
+  {
+   "num": 3,
+   "title": "Buttons",
+   "blocks": [
+    "on Button.A",
+    "on Button.B",
+    "on Button.AB"
+   ],
+   "text": "The micro:bit has two buttons. A means done: sunscreen is on, or I am going inside. B wakes the device up. Pressing both together turns it off, or on again."
+  },
+  {
+   "num": 4,
+   "title": "Alerts",
+   "blocks": [
+    "fn flashAndBeepUntilA",
+    "fn stillWaitingForA",
+    "fn tapArmUntilA",
+    "fn standbyUntilButton"
+   ],
+   "text": "The ways the device gets your attention: flashing and beeping, tapping your arm with the small motor, and going to sleep when nobody answers. Each one keeps going until you press A or its time limit runs out. No answer for a long time means the device is probably not being worn, so it sleeps until a button is pressed."
+  },
+  {
+   "num": 5,
+   "title": "Screen and lights",
+   "blocks": [
+    "fn showUvReading",
+    "fn uvBandName",
+    "fn showLedStatus",
+    "fn showMessage",
+    "fn ledsAllOn",
+    "fn oledHeader",
+    "fn oledShowMessage",
+    "fn oledFooter"
+   ],
+   "text": "What you see. The 5 by 5 grid of lights shows the UV number, a happy face or a warning, and messages one word at a time. If a small screen is fitted, it shows the number large, the level, the message and the countdowns."
+  },
+  {
+   "num": 6,
+   "title": "Sound and the tapping arm",
+   "blocks": [
+    "fn setupSound",
+    "fn beep",
+    "fn servoAngle",
+    "fn servoOff",
+    "fn servoTapOnce"
+   ],
+   "text": "The beeps, and the small motor (a servo) whose arm taps your wrist when the sun is extreme."
+  },
+  {
+   "num": 7,
+   "title": "Talking to the phone",
+   "blocks": [
+    "fn advertiseOverBluetooth",
+    "bluetooth_on_connected",
+    "bluetooth_on_disconnected",
+    "bluetooth_on_data_received",
+    "serial_on_data_received",
+    "every_interval",
+    "fn sendLine",
+    "fn sendEvent",
+    "fn sendStatus",
+    "fn handleCommand",
+    "fn calibrateToKnownUv"
+   ],
+   "text": "How the wearable and the phone app talk over Bluetooth. The phone sends the online UV index for where you are; the wearable sends back what it is doing every two seconds and reports each event, such as sunscreen applied. The same messages also go down the USB cable, so everything can be tested on a laptop."
+  },
+  {
+   "num": 8,
+   "title": "Helpers",
+   "blocks": [
+    "fn applySensorPreset",
+    "fn applyTimings",
+    "fn sortNumbers",
+    "fn formatNumber",
+    "fn formatTime",
+    "fn twoDigits",
+    "fn reapplyCountdownText",
+    "fn cleanText",
+    "fn isBlank",
+    "fn debugLog"
+   ],
+   "text": "Small jobs the other blocks share: the maths for each type of sensor, turning minutes into the milliseconds the program counts in, sorting numbers, and tidying up numbers, times and text."
+  },
+  {
+   "num": 9,
+   "title": "The optional screen",
+   "blocks": [
+    "fn setupOled",
+    "fn oledInitCommands",
+    "fn loadFont",
+    "fn buildNibbleTable",
+    "fn fontByte",
+    "fn oledCommand",
+    "fn oledData",
+    "fn oledSetPosition",
+    "fn oledClear",
+    "fn oledWriteText",
+    "fn oledWriteRow",
+    "fn oledWriteBig"
+   ],
+   "text": "Only used if a small screen is added to the wearable. These blocks draw letters and numbers on it dot by dot. The device works exactly the same without a screen."
   }
+ ],
+ "eventLabels": {
+  "pxt-on-start": {
+   "name": "on start",
+   "kind": "Runs once, when the device is switched on"
+  },
+  "device_forever": {
+   "name": "forever",
+   "kind": "Runs again and again, all day"
+  },
+  "on Button.A": {
+   "name": "on button A pressed",
+   "kind": "Runs each time button A is pressed"
+  },
+  "on Button.B": {
+   "name": "on button B pressed",
+   "kind": "Runs each time button B is pressed"
+  },
+  "on Button.AB": {
+   "name": "on button A+B pressed",
+   "kind": "Runs when A and B are pressed together"
+  },
+  "bluetooth_on_connected": {
+   "name": "on bluetooth connected",
+   "kind": "Runs when a phone connects"
+  },
+  "bluetooth_on_disconnected": {
+   "name": "on bluetooth disconnected",
+   "kind": "Runs when the phone goes away"
+  },
+  "bluetooth_on_data_received": {
+   "name": "on bluetooth data received",
+   "kind": "Runs when a line of text arrives from the phone"
+  },
+  "serial_on_data_received": {
+   "name": "on serial data received",
+   "kind": "Runs when a line of text arrives over the USB cable"
+  },
+  "every_interval": {
+   "name": "every 2000 ms",
+   "kind": "Runs every 2 seconds in the background"
+  }
+ },
+ "plain": {
+  "pxt-on-start": "The first thing that runs when the device is switched on. All the settings are listed here, then the start-up steps: work out the sensor maths, set the timings, get the sound, the screen and Bluetooth ready, and show that the device is on. Holding B while switching on uses the fast demo timings.",
+  "device_forever": "Runs the flowchart once, then goes straight back to the top and runs it again, all day long.",
+  "fn runFlowchart": "The whole flowchart from top to bottom. Read the sensor. If the reading makes sense, pick the UV value, show it, decide the level and react: a happy face, or an alert until A is pressed. Then wait 5 minutes and check whether it is time for more sunscreen. If the reading does not make sense, show CHECK SENSOR instead. Pressing A and B together at any moment turns the device off and stops every wait.",
+  "fn readUvSensor": "Reads the UV sensor plugged into pin P1. It takes 15 quick readings and uses the middle one, so a single odd reading cannot set off a false alarm. Then it turns the sensor's voltage into a UV index number.",
+  "fn sensorReadingInRange": "Asks: is this reading believable? The answer is no if the sensor is missing or shorted, if the readings jump about (a loose wire), or if the number could not be real.",
+  "fn showCheckSensor": "When the reading is not believable: shows a cross and the words CHECK SENSOR, beeps twice, tells the app there is a problem, and tries again in 5 seconds. A faulty sensor is never treated as safe.",
+  "fn phoneSendingOnlineUv": "Asks: has the phone app sent an online UV index in the last 30 minutes?",
+  "fn chooseUvValue": "Picks the UV number the device will act on: the higher of the sensor's reading and the phone's online value, or just the sensor's reading when the phone is not sending.",
+  "fn uvBand": "Turns a UV index into one of the four levels on the flowchart: low (0 to 2), moderate or high (3 to 7), very high (8 to 10) or extreme (11 and above).",
+  "fn showHappyFace": "UV 0 to 2: shows a happy face. No sunscreen needed right now.",
+  "fn moderateOrHighUv": "UV 3 to 7: flashes and beeps slowly until A is pressed, then shows how much sunscreen to put on and starts the 2 hour timer. If sunscreen is already on, it just shows a tick and the time left. If nobody presses A within 10 minutes, the device assumes it is not being worn and goes to sleep.",
+  "fn veryHighUv": "UV 8 to 10: flashes and beeps quickly until A is pressed, then shows the sunscreen advice plus hat and shade, and starts the 2 hour timer. It alerts again if the wearer so far only had the moderate advice.",
+  "fn extremeUv": "UV 11 or more: taps the arm until A is pressed (after 2 minutes it beeps instead), shows Go inside now, then sleeps until a button is pressed.",
+  "fn sunscreenApplied": "A was pressed after a sunscreen alert: remembers which advice was given, counts one more application, tells the app, and starts the timer.",
+  "fn start2HourReapplyTimer": "Starts the 2 hour countdown to the next sunscreen.",
+  "fn alreadyProtected": "Sunscreen is already on, so there is no alert: just a tick and the time until it needs reapplying.",
+  "fn wait5Minutes": "Waits 5 minutes before the next check. The wait ends early if the device is turned off or the sunscreen timer runs out. Pressing A during the wait shows the UV number and the countdown.",
+  "fn reapplyTimerExpired": "Asks: have the 2 hours since the last sunscreen passed?",
+  "fn showReapplySunscreen": "Shows Reapply sunscreen and clears the timer, so the next trip round the flowchart alerts again if the sun is still strong.",
+  "fn deviceTurnsOn": "Switching on: shows a tick, says Device on on the screen, tells the app, and marks the device as on.",
+  "fn deviceTurnsOff": "Switching off: everything stops and the screen shows OFF. Bluetooth stays on so the app can switch it back on.",
+  "on Button.A": "Pressing A means done: sunscreen is on, or I am going inside. It also wakes the device, skips a long message, and during a wait shows the UV number and the countdown.",
+  "on Button.B": "Pressing B wakes the device from sleep. Holding B while switching on gives the fast demo timings.",
+  "on Button.AB": "Pressing A and B together turns the device off, or on again.",
+  "fn flashAndBeepUntilA": "Flashes all 25 lights and beeps until A is pressed or the app says done. The fast setting is the quicker, higher beep for very high UV. It gives up after 10 minutes so a device left on a table does not beep all day.",
+  "fn stillWaitingForA": "Asks: should the alert carry on? Yes while A has not been pressed, the device is still on, and the time limit has not been reached.",
+  "fn tapArmUntilA": "Taps the wearer's arm with the motor until A is pressed. After 2 minutes it beeps instead, so a device that is not being worn does not run the motor flat.",
+  "fn standbyUntilButton": "Sleep: waits for any button, or done from the app. Pressing A and B together still turns the device off. Afterwards it goes straight back to reading the sensor.",
+  "fn showUvReading": "Shows the UV number: rounded on the grid of lights, and exact, with the level and where it came from, on the screen.",
+  "fn uvBandName": "The words for the screen: LOW, MODERATE, HIGH, VERY HIGH or EXTREME.",
+  "fn showLedStatus": "When A is pressed during a wait: the UV number and the time until reapply scroll across the lights, then the usual icon comes back.",
+  "fn showMessage": "Shows a message: on the screen if there is one, otherwise scrolled across the lights one word at a time. Pressing A skips the rest.",
+  "fn ledsAllOn": "Turns all 25 lights on: the flash of an alert.",
+  "fn oledHeader": "The top line of the screen: the title, and a star while a phone is connected.",
+  "fn oledShowMessage": "The middle of the screen: a message, split over three lines of 21 letters.",
+  "fn oledFooter": "The bottom line of the screen: the countdowns.",
+  "fn setupSound": "Gets the sound ready: the micro:bit's built-in speaker, or a buzzer on pin P0.",
+  "fn beep": "One beep. It needs how high the beep should sound (the frequency) and how long it lasts (in milliseconds).",
+  "fn servoAngle": "Turns the motor's arm to an angle. The motor's signal wire is on pin P2.",
+  "fn servoOff": "Moves the arm back to rest, then stops sending it signals so it is silent and uses no power.",
+  "fn servoTapOnce": "One tap of the arm, about half a second long.",
+  "fn advertiseOverBluetooth": "Makes the wearable visible over Bluetooth so a phone can connect, and sends the same messages down the USB cable so a laptop can test everything.",
+  "bluetooth_on_connected": "A phone has connected: say hello and send it the current status straight away.",
+  "bluetooth_on_disconnected": "The phone has gone: remember that, and update the screen.",
+  "bluetooth_on_data_received": "A line of text arrived from the phone: pass it to the block that reads commands.",
+  "serial_on_data_received": "A line of text arrived over the USB cable: pass it to the block that reads commands.",
+  "every_interval": "Every 2 seconds, send the app a status line.",
+  "fn sendLine": "Sends one line of text down the USB cable, and to the phone when one is connected.",
+  "fn sendEvent": "Tells the app something happened: sunscreen applied, a reminder, went inside, sleep, a sensor problem, on or off.",
+  "fn sendStatus": "Builds the status line the app shows: what the device is doing, the UV values, the level, the seconds until sunscreen is due, how many applications so far, the program version, and whether demo timings are on.",
+  "fn handleCommand": "Reads a command from the app or a laptop and acts on it: a new online UV value, done, calibrate the sensor, demo timings on or off, switch off or on, extra detail on or off, ping, or send the status now.",
+  "fn calibrateToKnownUv": "Corrects the sensor's scale. With the sensor in the sun, the app sends today's real UV index and the wearable adjusts its maths so it reads the same.",
+  "fn applySensorPreset": "The maths for each type of UV sensor: which voltage means zero, and how many volts make one point of UV index.",
+  "fn applyTimings": "Turns the minutes and hours from the settings into the milliseconds the program counts in. Demo timings are much shorter, so the whole flowchart can be shown in a few minutes.",
+  "fn sortNumbers": "Puts a list of numbers in order from smallest to largest. It is used to find the middle sensor reading.",
+  "fn formatNumber": "Writes a number with one decimal place: 7.25 becomes 7.3.",
+  "fn formatTime": "Writes a time the way a clock would: 1:30, or 2h00.",
+  "fn twoDigits": "Adds a leading zero: 7 becomes 07.",
+  "fn reapplyCountdownText": "The short SPF 1h23 text for the bottom of the screen while the sunscreen timer is running.",
+  "fn cleanText": "Removes stray spaces and line endings from a command before it is read.",
+  "fn isBlank": "Asks: is this character a space or the end of a line?",
+  "fn debugLog": "Extra detail lines for a laptop, sent only after the command debug=1.",
+  "fn setupOled": "Looks for a screen on pins 19 and 20 and gets it ready. If there is no screen, everything else works the same.",
+  "fn oledInitCommands": "The standard list of instructions that wakes up a 128 by 64 dot screen.",
+  "fn loadFont": "The shape of every letter, number and symbol, 5 dots wide by 7 tall, stored as text and unpacked when the device starts.",
+  "fn buildNibbleTable": "A lookup table for double-size letters: every dot is doubled sideways.",
+  "fn fontByte": "One column of dots, out of five, of one character.",
+  "fn oledCommand": "Sends the screen one instruction.",
+  "fn oledData": "Sends the screen three columns of dots.",
+  "fn oledSetPosition": "Moves to a place on the screen: a row from 0 to 7 and a column from 0 to 127.",
+  "fn oledClear": "Blanks the whole screen.",
+  "fn oledWriteText": "Writes small text: up to 21 characters on each of 8 rows.",
+  "fn oledWriteRow": "Writes a whole row, filling the rest with spaces so old text is wiped.",
+  "fn oledWriteBig": "Writes double-size text, two rows tall and up to 10 characters. It is used for the big UV number."
+ }
 }

@@ -3,7 +3,7 @@
 // real MakeCode editor at full size, labelled with what it does (from the comments in main.ts), and
 // packed onto A3 sheets, one overview sheet plus as many sheets as each section needs. Output: a PDF and PNGs.
 //
-//   node tools/poster/make-poster.js [--out docs/poster] [--zoom 0.8] [--cache <dir>] [--sheets] [--harness <module>]
+//   node tools/poster/make-poster.js [--sheet A3|A2|A1|A0] [--out docs/poster] [--zoom 0.6] [--text 1] [--cache <dir>] [--sheets] [--harness <module>]
 //
 // Run it again after any change to main.ts / sunburn-device.mkcd: the captures are cached per version of the
 // code, so only the first run for a version opens the editor.
@@ -25,9 +25,15 @@ const HARNESS = argOf('--harness', '');
 const MKCD = path.join(ROOT, 'sunburn-device.mkcd');
 const MC_URL = 'https://makecode.microbit.org/?controller=1&nocookiebanner=1';
 const SCALE = 2;   // device pixels per CSS pixel for the block captures (print quality)
-const ZOOM = Number(argOf('--zoom', '0.6'));   // block size on paper, relative to the editor at 100%
+// Sheet size. A3 is for a home printer; A2, A1 and A0 are for a wall, with bigger blocks and text so they read from a distance.
+const SHEETS = { A3: [297, 420, 0.6, 1], A2: [420, 594, 0.6, 1.1], A1: [594, 841, 0.6, 1.1], A0: [841, 1189, 0.7, 1.3] };   // width, height (mm, portrait), default zoom, default text size (the fewest sheets that stay readable up close; raise --zoom and --text for reading from further away)
+const SIZE = (argOf('--sheet', 'A3') || 'A3').toUpperCase();
+if (!SHEETS[SIZE]) { console.error('--sheet must be one of ' + Object.keys(SHEETS).join(', ')); process.exit(1); }
+const [SHEET_W, SHEET_H] = SHEETS[SIZE];
+const ZOOM = Number(argOf('--zoom', String(SHEETS[SIZE][2])));   // block size on paper, relative to the editor at 100%
+const TEXT = Number(argOf('--text', String(SHEETS[SIZE][3])));   // caption and heading size, relative to the A3 sheets
 const CACHE = path.resolve(argOf('--cache', path.join(os.tmpdir(), 'sunburn-poster')));   // captures are kept here and reused while the code is unchanged
-const SHEETS = args.includes('--sheets');   // also write every sheet as a PNG into the cache folder
+const WANT_SHEETS = args.includes('--sheets');   // also write every sheet as a PNG into the cache folder
 
 const spec = JSON.parse(fs.readFileSync(path.join(__dirname, 'sections.json'), 'utf8'));
 const mkcd = JSON.parse(fs.readFileSync(MKCD, 'utf8'));
@@ -191,15 +197,21 @@ const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(
 function figureHtml(key, pic, labels) {
   const lab = labels[key] || {}; const ev = spec.eventLabels[key];
   const name = ev ? ev.name : lab.name || key;
-  const kind = ev ? ev.kind : (lab.returns ? `Function that answers with a ${lab.returns === 'boolean' ? 'yes/no' : lab.returns}` : 'Function') + (lab.params ? `, inputs: ${lab.params.replace(/: (\w+)/g, ' ($1)')}` : '');
+  let kind;
+  if (ev) kind = ev.kind;
+  else {
+    kind = lab.returns === 'boolean' ? 'A yes-or-no question the program asks' : lab.returns === 'string' ? 'Works out a piece of text' : lab.returns === 'number' ? 'Works out a number' : 'A step of the program';
+    if (lab.params) kind += ` · needs: ${lab.params.replace(/: [\w\[\]]+/g, '').replace(/,\s*/g, ', ')}`;
+  }
+  const plain = (spec.plain || {})[key] || lab.comment || '';
   const meta = [];
   if (lab.calledFrom && lab.calledFrom.length) meta.push(`<b>Used by:</b> ${esc(lab.calledFrom.map(k => (spec.eventLabels[k] || {}).name || k.replace(/^fn /, '')).join(', '))}`);
   if (lab.calls && lab.calls.length) meta.push(`<b>Uses:</b> ${esc(lab.calls.join(', '))}`);
   const imgW = Math.round(pic.w * ZOOM), imgH = Math.round(pic.h * ZOOM);
-  const textLen = (lab.comment || '').length + meta.join('').length;
-  const width = Math.max(imgW, textLen > 220 ? 330 : textLen > 120 ? 260 : 210);
+  const textLen = plain.length + meta.join('').length;
+  const width = Math.max(imgW, Math.round((textLen > 220 ? 330 : textLen > 120 ? 260 : 210) * TEXT));
   return `<figure style="width:${width}px" data-key="${esc(key)}"><img src="${pic.data}" width="${imgW}" height="${imgH}" alt="${esc(name)}">
-    <figcaption><span class="nm">${esc(name)}</span> <span class="kd">${esc(kind)}</span><p>${esc(lab.comment || '')}</p>${meta.length ? `<p class="meta">${meta.join(' · ')}</p>` : ''}</figcaption></figure>`;
+    <figcaption><span class="nm">${esc(name)}</span> <span class="kd">${esc(kind)}</span><p>${esc(plain)}</p>${meta.length ? `<p class="meta">${meta.join(' · ')}</p>` : ''}</figcaption></figure>`;
 }
 
 function composeHtml(caps, labels) {
@@ -211,81 +223,97 @@ function composeHtml(caps, labels) {
     return `<div class="section" data-num="${sec.num}" data-title="${esc(sec.title)}" data-count="${sec.blocks.length}"><div class="text">${esc(sec.text)}</div>${figs}</div>`;
   }).join('\n');
   if (missing.length) console.warn('no picture for:', missing.join(', '));
+  const unplaced = Object.keys(caps.pictures).filter(k => !spec.sections.some(sec => sec.blocks.includes(k)));
+  if (unplaced.length) console.warn('blocks not in any section of sections.json (add them):', unplaced.join(', '));
   const index = spec.sections.map(sec => `<li><span class="n">${sec.num}</span><div><b>${esc(sec.title)}</b> <span class="muted">· ${sec.blocks.length} block${sec.blocks.length === 1 ? '' : 's'} · <span class="sheetref" data-num="${sec.num}">sheet ?</span></span><br>${esc(sec.text)}</div></li>`).join('');
-  const LEGEND = [['variables', 'Variables: remember a value'], ['functions', 'Functions: one flowchart box each'], ['basic', 'Basic: LEDs, pause, show'], ['input', 'Input: buttons and pins'], ['loops', 'Loops: repeat'], ['logic', 'Logic: if, compare'], ['math', 'Maths'], ['text', 'Text'], ['arrays', 'Arrays: lists'], ['music', 'Music: beeps'], ['pins', 'Pins: sensor, servo, OLED'], ['bluetooth', 'Bluetooth: the app'], ['serial', 'Serial: USB console'], ['control', 'Control: timing']];
+  const LEGEND = [['variables', 'Variables: remember a value'], ['functions', 'Functions: a step with a name'], ['basic', 'Basic: the lights, pauses'], ['input', 'Input: buttons and time'], ['loops', 'Loops: repeat'], ['logic', 'Logic: if, compare'], ['math', 'Maths'], ['text', 'Text'], ['arrays', 'Arrays: lists'], ['music', 'Music: beeps'], ['pins', 'Pins: sensor, motor, screen'], ['bluetooth', 'Bluetooth: the phone'], ['serial', 'Serial: the USB cable'], ['control', 'Control: timing']];
   const colours = Object.assign({ basic: '#1E90FF', input: '#D400D4', music: '#E63022', led: '#5C2D91', bluetooth: '#007EF4', pins: '#A80000', serial: '#002050', control: '#333333' }, Object.fromEntries(Object.entries(caps.colours || {}).filter(([, v]) => v)));
   const legend = LEGEND.filter(([ns]) => colours[ns]).map(([ns, what]) => `<li><i style="background:${colours[ns]}"></i>${esc(what)}</li>`).join('');
+  const glossary = (spec.glossary || []).map(([term, what]) => `<li><b>${esc(term)}</b> ${esc(what)}</li>`).join('');
   const today = new Date().toISOString().slice(0, 10);
+  const coverZoom = SHEET_H / 420;   // the cover is laid out as an A3 landscape sheet and scaled up to the chosen size
   return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(spec.title)} poster</title><style>
-    @page { size: A3 portrait; margin: 0; }
-    @page land { size: A3 landscape; margin: 0; }
+    @page { size: ${SHEET_W}mm ${SHEET_H}mm; margin: 0; }
+    @page land { size: ${SHEET_H}mm ${SHEET_W}mm; margin: 0; }
     * { box-sizing: border-box; }
-    html, body { margin: 0; background: #fff; color: #1c1917; font: 11pt/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-    .page { position: relative; width: 297mm; height: 420mm; padding: 10mm; overflow: hidden; break-after: page; page-break-after: always; background: #fff; }
-    .page.landscape { width: 420mm; height: 297mm; page: land; }
+    :root { --t: ${TEXT}; }
+    html, body { margin: 0; background: #fff; color: #1c1917; font: calc(11pt * var(--t))/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    .page { position: relative; width: ${SHEET_W}mm; height: ${SHEET_H}mm; padding: 10mm; overflow: hidden; break-after: page; page-break-after: always; background: #fff; }
+    .page.landscape { width: ${SHEET_H}mm; height: ${SHEET_W}mm; page: land; padding: 0; }
     .page:last-child { break-after: auto; page-break-after: auto; }
-    .cover { display: grid; grid-template-columns: 1fr 300px; grid-template-rows: auto auto 1fr auto; gap: 0 10mm; }
-    .cover .side { grid-row: 1 / 5; grid-column: 2; }
-    .cover h1 { font-size: 34pt; margin: 0 0 2mm; letter-spacing: -0.01em; line-height: 1.1; }
-    .cover .sub { font-size: 14pt; color: #57534e; margin: 0 0 4mm; }
-    .cover .howto { font-size: 9.5pt; color: #57534e; margin: 0 0 3mm; }
-    .cover .ovwrap { min-height: 0; display: flex; align-items: flex-start; gap: 4mm; }
-    .cover .ov { max-height: 100%; max-width: 100%; border: 1px solid #ece5d6; border-radius: 3mm; }
-    .cover ol.index { list-style: none; padding: 0; margin: 4mm 0 0; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2.5mm 6mm; font-size: 8.5pt; line-height: 1.3; }
-    .cover ol.index li { display: flex; gap: 2.5mm; }
-    .cover .side img { width: 100%; border: 1px solid #ece5d6; border-radius: 3mm; }
-    .cover .side p { font-size: 9pt; color: #57534e; margin: 2mm 0 4mm; }
-    .cover .side h3 { font-size: 10pt; margin: 4mm 0 2mm; }
-    .cover ul.legend { list-style: none; padding: 0; margin: 0; font-size: 8.5pt; columns: 2; column-gap: 4mm; }
-    .cover ul.legend li { display: flex; align-items: center; gap: 2mm; margin-bottom: 1.2mm; break-inside: avoid; }
-    .cover ul.legend i { display: inline-block; width: 5mm; height: 3.6mm; border-radius: 1mm; flex: none; }
-    .n { display: inline-flex; align-items: center; justify-content: center; width: 7.5mm; height: 7.5mm; border-radius: 50%; background: #e8401c; color: #fff; font-weight: 700; font-size: 10.5pt; flex: none; }
-    .bar { display: flex; align-items: flex-start; gap: 5mm; background: #fff6e6; border: 1px solid #f3dcb8; border-radius: 3mm; padding: 3.5mm 5mm; position: absolute; }
+    .coverin { width: 420mm; height: 297mm; padding: 10mm; zoom: ${coverZoom}; font-size: 11pt; display: grid; grid-template-columns: 1fr 300px; grid-template-rows: auto auto 1fr auto auto; gap: 0 10mm; position: relative; }
+    .coverin .side { grid-row: 1 / 6; grid-column: 2; }
+    .coverin h1 { font-size: 34pt; margin: 0 0 2mm; letter-spacing: -0.01em; line-height: 1.1; }
+    .coverin .sub { font-size: 14pt; color: #57534e; margin: 0 0 3mm; }
+    .coverin .story { font-size: 10.5pt; margin: 0 0 2mm; max-width: 95%; }
+    .coverin .howto { font-size: 9.5pt; color: #57534e; margin: 0 0 3mm; }
+    .coverin .ovwrap { min-height: 0; display: flex; align-items: flex-start; gap: 4mm; }
+    .coverin .ov { max-height: 100%; max-width: 100%; border: 1px solid #ece5d6; border-radius: 3mm; }
+    .coverin ol.index { list-style: none; padding: 0; margin: 3mm 0 0; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2mm 6mm; font-size: 8.5pt; line-height: 1.3; }
+    .coverin ol.index li { display: flex; gap: 2.5mm; }
+    .coverin ul.glossary { list-style: none; padding: 3mm 0 0; margin: 3mm 0 0; border-top: 1px solid #ece5d6; columns: 4; column-gap: 6mm; font-size: 8pt; line-height: 1.3; color: #57534e; }
+    .coverin ul.glossary li { break-inside: avoid; margin-bottom: 1.5mm; }
+    .coverin ul.glossary b { color: #1c1917; }
+    .coverin .side img { width: 100%; border: 1px solid #ece5d6; border-radius: 3mm; }
+    .coverin .side p { font-size: 9pt; color: #57534e; margin: 2mm 0 4mm; }
+    .coverin .side h3 { font-size: 10pt; margin: 4mm 0 2mm; }
+    .coverin ul.legend { list-style: none; padding: 0; margin: 0; font-size: 8.5pt; columns: 2; column-gap: 4mm; }
+    .coverin ul.legend li { display: flex; align-items: center; gap: 2mm; margin-bottom: 1.2mm; break-inside: avoid; }
+    .coverin ul.legend i { display: inline-block; width: 5mm; height: 3.6mm; border-radius: 1mm; flex: none; }
+    .coverin footer { bottom: 4mm; right: 10mm; font-size: 8pt; }
+    .n { display: inline-flex; align-items: center; justify-content: center; width: calc(7.5mm * var(--t)); height: calc(7.5mm * var(--t)); border-radius: 50%; background: #e8401c; color: #fff; font-weight: 700; font-size: calc(10.5pt * var(--t)); flex: none; }
+    .coverin .n { width: 7.5mm; height: 7.5mm; font-size: 10.5pt; }
+    .bar { display: flex; align-items: flex-start; gap: calc(5mm * var(--t)); background: #fff6e6; border: 1px solid #f3dcb8; border-radius: 3mm; padding: calc(3.5mm * var(--t)) calc(5mm * var(--t)); position: absolute; }
     #stage .bar { position: relative; visibility: hidden; }
-    .bar h2 { margin: 0 0 1mm; font-size: 17pt; line-height: 1.15; }
-    .bar h2 small { font-weight: 400; color: #8a857d; font-size: 11pt; }
-    .bar p { margin: 0; font-size: 9.5pt; color: #57534e; }
-    .bar .tag { margin-left: auto; font-size: 9pt; color: #8a857d; white-space: nowrap; }
+    .bar h2 { margin: 0 0 1mm; font-size: calc(17pt * var(--t)); line-height: 1.15; }
+    .bar h2 small { font-weight: 400; color: #8a857d; font-size: calc(11pt * var(--t)); }
+    .bar p { margin: 0; font-size: calc(9.5pt * var(--t)); color: #57534e; }
+    .bar .tag { margin-left: auto; font-size: calc(9pt * var(--t)); color: #8a857d; white-space: nowrap; }
     .area { position: relative; }
     figure { margin: 0; position: absolute; }
     #stage figure { position: relative; visibility: hidden; }
     figure img { display: block; border: 1px solid #ece5d6; border-radius: 2mm; }
-    figcaption { margin-top: 1.5mm; font-size: 8.5pt; line-height: 1.3; }
-    figcaption .nm { font-weight: 700; font-size: 10pt; }
+    figcaption { margin-top: 1.5mm; font-size: calc(8.5pt * var(--t)); line-height: 1.3; }
+    figcaption .nm { font-weight: 700; font-size: calc(10pt * var(--t)); }
     figcaption .kd { color: #8a857d; }
     figcaption p { margin: 0.8mm 0 0; }
-    figcaption p.meta { color: #57534e; font-size: 8pt; }
-    footer { position: absolute; bottom: 4mm; right: 10mm; font-size: 8pt; color: #8a857d; }
+    figcaption p.meta { color: #57534e; font-size: calc(8pt * var(--t)); }
+    footer { position: absolute; bottom: 4mm; right: 10mm; font-size: calc(8pt * var(--t)); color: #8a857d; }
     .muted { color: #8a857d; }
     .section .text { display: none; }
   </style></head><body>
-  <div class="page landscape cover">
+  <div class="page landscape cover"><div class="coverin">
     <div>
       <h1>${esc(spec.title)}: the whole program</h1>
       <p class="sub">${esc(spec.subtitle)} · printed ${today}</p>
     </div>
-    <p class="howto">This is the complete MakeCode program running on the micro:bit, exactly as it appears in the editor. This sheet is the whole workspace at a glance: nine numbered sections in two rows. The other sheets show every block of each section at readable size, with what it does, what it needs, and which other blocks use it. Sections 1 and 2 are the whole program; sections 3 to ${spec.sections.length} are the parts the flowchart calls.</p>
+    <div>
+      <p class="story">${esc(spec.story || '')}</p>
+      <p class="howto">${esc(spec.howto || '')}</p>
+    </div>
     <div class="ovwrap"><img class="ov" src="${caps.overview}" alt="The whole Blocks workspace"></div>
     <ol class="index">${index}</ol>
-    <div class="side">${flowchartData ? `<img src="${flowchartData}" alt="The Sunburn flowchart"><p>The Sunburn Flowchart the program follows. Every box is a function in section 2 with the same name.</p>` : ''}
+    ${glossary ? `<ul class="glossary">${glossary}</ul>` : ''}
+    <div class="side">${flowchartData ? `<img src="${flowchartData}" alt="The Sunburn flowchart"><p>The Sunburn Flowchart the device follows. Every box on it is a block in section 2 with the same name.</p>` : ''}
       ${legend ? `<h3>What the block colours mean</h3><ul class="legend">${legend}</ul>` : ''}
-      <h3>Reading a sheet</h3><p>Every picture is one block from the editor at ${Math.round(ZOOM * 100)}% size. Under it: the block's name, what kind of block it is, what it does, which blocks use it (Used by) and which blocks it calls (Uses).</p>
+      <h3>Reading the other sheets</h3><p>Every picture is one block from the editor${ZOOM === 1 ? '' : ` at ${Math.round(ZOOM * 100)}% of its size on screen`}. Under it: the block's name, what kind of block it is, what it does, which blocks use it (Used by) and which blocks it calls on (Uses).</p>
     </div>
-    <footer>${esc(spec.title)} · <span class="sheetno"></span></footer>
-  </div>
+    <footer></footer>
+  </div></div>
   <div id="stage">${sections}</div>
   <script>
-    // Lays the figures out on as many A3 sheets as they need, in section order, packing each sheet full.
-    const PX = 96 / 25.4, GAP = 16;
-    const CW = 277 * PX, CH = 400 * PX;
+    // Lays the figures out on as many sheets as they need, in section order, packing each sheet full.
+    const PX = 96 / 25.4, GAP = Math.round(16 * ${TEXT});
+    const CW = (${SHEET_W} - 20) * PX, CH = (${SHEET_H} - 20) * PX;
     const findPos = (sky, w, h, H) => { let best = null; for (const s of sky) { const x = s.x; if (x + w > CW + 0.5) continue; let y = 0; for (const t of sky) { if (t.x < x + w && t.x + t.w > x) y = Math.max(y, t.y); } if (y + h > H + 0.5) continue; if (!best || y < best.y - 0.5 || (Math.abs(y - best.y) <= 0.5 && x < best.x)) best = { x, y }; } return best; };
     const addLevel = (sky, x, w, top) => { const out = []; for (const s of sky) { if (s.x + s.w <= x || s.x >= x + w) { out.push(s); continue; } if (s.x < x) out.push({ x: s.x, w: x - s.x, y: s.y }); if (s.x + s.w > x + w) out.push({ x: x + w, w: s.x + s.w - (x + w), y: s.y }); } out.push({ x, w, y: top }); out.sort((a, b) => a.x - b.x); const m = []; for (const s of out) { const l = m[m.length - 1]; if (l && Math.abs(l.y - s.y) < 0.01 && Math.abs(l.x + l.w - s.x) < 0.01) l.w += s.w; else m.push({ ...s }); } return m; };
     const pages = [document.querySelector('.cover')];
     const firstSheet = {}, onPage = [[]];
     let page = null, area = null, sky = null, H = 0;
+    const FOOT = 6 * PX * ${TEXT};
     const newPage = () => { page = document.createElement('div'); page.className = 'page'; page.innerHTML = '<div class="area"></div><footer></footer>';
       document.body.appendChild(page); pages.push(page); onPage.push([]);
-      area = page.querySelector('.area'); H = CH - 6 * PX; area.style.height = H + 'px'; sky = [{ x: 0, w: CW, y: 0 }]; };
+      area = page.querySelector('.area'); H = CH - FOOT; area.style.height = H + 'px'; sky = [{ x: 0, w: CW, y: 0 }]; };
     const makeBar = (sec, cont) => { const el = document.createElement('div'); el.className = 'bar'; el.style.width = CW + 'px';
       el.innerHTML = '<span class="n">' + sec.num + '</span><div><h2>' + sec.title + (cont ? ' <small>(continued)</small>' : '') + '</h2><p>' + sec.text + '</p></div><span class="tag">' + sec.count + ' block' + (sec.count == 1 ? '' : 's') + '</span>';
       document.getElementById('stage').appendChild(el); return { el, w: CW - GAP, h: el.offsetHeight, bar: true, sec }; };
@@ -295,7 +323,7 @@ function composeHtml(caps, labels) {
         const cap = f.el.offsetHeight - img.offsetHeight;
         const shrink = Math.min(1, (CW - GAP - 4) / img.offsetWidth, (HF - cap - 4) / img.offsetHeight);
         if (shrink >= 1) break;
-        img.width = Math.floor(img.width * shrink); img.height = Math.floor(img.height * shrink); f.el.style.width = Math.max(img.width, 260) + 'px';
+        img.width = Math.floor(img.width * shrink); img.height = Math.floor(img.height * shrink); f.el.style.width = Math.max(img.width, 260 * ${TEXT}) + 'px';
       }
       f.h = f.el.offsetHeight; f.w = f.el.offsetWidth;
     };
@@ -316,7 +344,7 @@ function composeHtml(caps, labels) {
       const sec = { num: secEl.dataset.num, title: secEl.dataset.title, count: secEl.dataset.count, text: secEl.querySelector('.text').textContent };
       const figs = Array.from(secEl.querySelectorAll('figure')).map(f => ({ el: f, w: f.offsetWidth, h: f.offsetHeight }));
       const bar = makeBar(sec, false);
-      figs.forEach(f => fit(f, CH - 6 * PX - bar.h - GAP));
+      figs.forEach(f => fit(f, CH - FOOT - bar.h - GAP));
       let items = figs, first = true;
       if (page) {   // a section starts in the space left on the current sheet when all of it, or at least three of its blocks, fit there
         const trial = packInto(sky, [bar, ...figs]);
@@ -326,7 +354,7 @@ function composeHtml(caps, labels) {
       while (true) { newPage(); const r = packInto(sky, [first ? bar : makeBar(sec, true), ...items]); if (r.placed.length < 2) throw new Error('cannot place ' + sec.title + ': ' + (r.rest[1] || {}).el); commit(r); if (!r.rest.length) break; items = r.rest; first = false; }
     }
     document.getElementById('stage').remove();
-    pages.forEach((p, i) => { const secs = onPage[i]; p.querySelector('footer').innerHTML = '${esc(spec.title)} · <span class="sheetno">sheet ' + (i + 1) + ' of ' + pages.length + '</span>' + (secs.length ? ' · section' + (secs.length > 1 ? 's ' : ' ') + secs.join(', ') + ' of ${spec.sections.length}' : ''); });
+    pages.forEach((p, i) => { const secs = onPage[i]; p.querySelector('footer').innerHTML = '${esc(spec.title)} · <span class="sheetno">sheet ' + (i + 1) + ' of ' + pages.length + '</span>' + (secs.length ? ' · section' + (secs.length > 1 ? 's ' : ' ') + secs.join(', ') + ' of ${spec.sections.length}' : '') + ' · ${SIZE}'; });
     for (const r of document.querySelectorAll('.sheetref')) r.textContent = 'sheet ' + firstSheet[r.dataset.num];
     window.__layout = { pages: pages.length, firstSheet };
   </script>
@@ -336,26 +364,30 @@ function composeHtml(caps, labels) {
 async function main() {
   fs.mkdirSync(OUT, { recursive: true });
   const labels = parseLabels(mainTs);
+  if (args.includes('--dump-labels')) { console.log(JSON.stringify(labels, null, 1)); return; }   // to write the plain-language texts in sections.json
   const caps = await capture();
   const html = composeHtml(caps, labels);
   fs.mkdirSync(CACHE, { recursive: true });
-  fs.writeFileSync(path.join(CACHE, 'poster.html'), html);
+  fs.writeFileSync(path.join(CACHE, `poster-${SIZE}.html`), html);
+  const pdfName = `sunburn-code-poster-${SIZE}.pdf`;
 
   // lay out and print
   const { chromium } = require('playwright');
-  const b2 = await chromium.launch(); const p2 = await b2.newPage({ viewport: { width: 1600, height: 1200 }, deviceScaleFactor: 1.5 });
+  const b2 = await chromium.launch(); const p2 = await b2.newPage({ viewport: { width: 1600, height: 1200 }, deviceScaleFactor: SIZE === 'A3' ? 1.5 : 0.75 });
   await p2.setContent(html, { waitUntil: 'load', timeout: 180000 });
   const layout = await p2.evaluate(() => window.__layout);
   if (!layout) throw new Error('layout script did not run');
-  await p2.pdf({ path: path.join(OUT, 'sunburn-code-poster-A3.pdf'), preferCSSPageSize: true, printBackground: true });
-  // the overview sheet as a picture too (for a screen or a single print), and the bare workspace
-  await (await p2.$('.cover')).screenshot({ path: path.join(OUT, 'sheet-1-overview.png') });
-  fs.writeFileSync(path.join(OUT, 'workspace-overview.png'), Buffer.from(caps.overview.split(',')[1], 'base64'));
-  if (SHEETS) { const ps = await p2.$$('.page'); for (let i = 0; i < ps.length; i++) await ps[i].screenshot({ path: path.join(CACHE, `sheet-${String(i + 1).padStart(2, '0')}.png`) }); }
+  await p2.pdf({ path: path.join(OUT, pdfName), preferCSSPageSize: true, printBackground: true });
+  // the A3 overview sheet as a picture too (for the README and screens), and the bare workspace
+  if (SIZE === 'A3') {
+    await (await p2.$('.cover')).screenshot({ path: path.join(OUT, 'sheet-1-overview.png') });
+    fs.writeFileSync(path.join(OUT, 'workspace-overview.png'), Buffer.from(caps.overview.split(',')[1], 'base64'));
+  }
+  if (WANT_SHEETS) { const ps = await p2.$$('.page'); for (let i = 0; i < ps.length; i++) await ps[i].screenshot({ path: path.join(CACHE, `sheet-${SIZE}-${String(i + 1).padStart(2, '0')}.png`) }); }
   await b2.close();
-  const size = fs.statSync(path.join(OUT, 'sunburn-code-poster-A3.pdf')).size;
+  const size = fs.statSync(path.join(OUT, pdfName)).size;
   const where = Object.entries(layout.firstSheet).map(([n, s]) => `${n}→${s}`).join(' ');
-  console.log(`wrote ${path.relative(ROOT, OUT)}/sunburn-code-poster-A3.pdf (${(size / 1e6).toFixed(1)} MB, ${layout.pages} A3 sheets, sections start on sheets ${where}), sheet-1-overview.png, workspace-overview.png; ${Object.keys(caps.pictures).length} blocks`);
+  console.log(`wrote ${path.relative(ROOT, OUT)}/${pdfName} (${(size / 1e6).toFixed(1)} MB, ${layout.pages} ${SIZE} sheets at zoom ${ZOOM} text ${TEXT}, sections start on sheets ${where}); ${Object.keys(caps.pictures).length} blocks`);
 }
 
 main().catch(e => { console.error('ERR', e.stack || e.message); process.exit(1); });
