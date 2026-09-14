@@ -2,7 +2,7 @@
 
 A UV wearable for the BBC micro:bit that follows the **Sunburn Flowchart**: it reads a UV sensor, combines it with the online UV index sent by a phone over Bluetooth, and then flashes, beeps or taps your arm until you put sunscreen on. Two hours later it reminds you to reapply. A companion web app at **https://justadev742.github.io/Trashbin-robot/** supplies the live UV index for your location over Bluetooth and shows the device's status and history (section 6).
 
-The whole program is real MakeCode blocks (no grey JavaScript blocks), laid out in nine numbered sections that follow the flowchart box by box.
+The whole program is real MakeCode blocks (no grey JavaScript blocks), laid out in nine numbered sections that follow the flowchart box by box. The **code poster** in `docs/poster/` shows every block of it at readable size with a label saying what it does (section 1).
 
 ![The Blocks view zoomed out: nine numbered sections in two rows](docs/blocks-overview.png)
 
@@ -34,6 +34,21 @@ Zoom out and you will see nine yellow notes in two rows. Each note is a section 
 Sections 1 and 2 are the whole program. Section 1 is the `on start` block with every setting, and section 2 is the flowchart: `forever` calls `runFlowchart`, and every box and decision on the flowchart is a function with the same name, in the same order (`readUvSensor`, `sensorReadingInRange`, `showCheckSensor`, `phoneSendingOnlineUv`, `chooseUvValue`, `uvBand`, `showHappyFace`, `moderateOrHighUv`, `veryHighUv`, `extremeUv`, `start2HourReapplyTimer`, `wait5Minutes`, `reapplyTimerExpired`, `showReapplySunscreen`, `deviceTurnsOn`, `deviceTurnsOff`). Sections 3 to 9 are the parts those functions call.
 
 Every function block has a comment: click the small **?** icon on a block to read what it does. Do not use **Format code** or **Clean up blocks** from the workspace menu, as that throws the layout away.
+
+### The code poster
+
+[`docs/poster/sunburn-code-poster-A3.pdf`](docs/poster/sunburn-code-poster-A3.pdf) is the whole program on A3 sheets, ready to print. Sheet 1 (landscape) is the workspace at a glance, the flowchart, what the block colours mean, and an index of the sections. The other sheets (portrait) show every one of the 74 blocks as it appears in the editor, at 60% size, each with its name, what kind of block it is, what it does, which blocks use it and which blocks it calls. Sections start on a new sheet unless they fit in the space left on the previous one.
+
+![Sheet 1 of the code poster](docs/poster/sheet-1-overview.png)
+
+The poster is generated from the project itself, so it must be regenerated after any change to `main.ts` / `sunburn-device.mkcd`:
+
+```
+npm i -g playwright && npx playwright install chromium
+node tools/poster/make-poster.js
+```
+
+The script opens the real MakeCode editor in a headless browser, imports `sunburn-device.mkcd`, photographs every top-level block, reads the labels from the comments in `main.ts` and the section list in `tools/poster/sections.json`, packs the sheets and prints the PDF. Captures are cached per version of the code, so re-running it for a layout change takes seconds. Add a function to the right section in `sections.json` when you add one to the program, or the script warns that it has no place for it.
 
 ## 2. Wiring
 
@@ -129,12 +144,15 @@ st=wait;uv=7.3;sen=7.1;onl=6.5;band=vhigh;spf=5400;spfn=3;fw=3.1;demo=0
 
 ## 6. The companion app
 
-The micro:bit has no internet, so the app does the online half of the flowchart. It runs in the browser at **https://justadev742.github.io/Trashbin-robot/** (GitHub Pages publishes the repository root on every push to `main`, and `index.html` is the app) and everything it stores stays in that browser.
+The micro:bit has no internet, so the app does the online half of the flowchart. It runs in the browser at **https://justadev742.github.io/Trashbin-robot/** (GitHub Pages publishes the repository root on every push to `main`; `index.html`, `app.css` and `app.js` are the app, with no build step) and everything it stores stays in that browser.
 
-- **Live UV for where you are.** It uses your location, or a town you search for, and asks [Open-Meteo](https://open-meteo.com/) for the UV index there right now, today's hourly curve and peak, and the sun protection times (the hours with UV 3 or more). It sends `uv=<value>` to the device when it connects, every 10 minutes (adjustable), whenever you refresh, and again if the device reports it has lost the value (for example after a restart).
-- **Connect over Bluetooth or USB.** Bluetooth: Chrome or Edge on Android, Windows, macOS and ChromeOS, or the Bluefy browser on iPhone and iPad; if the micro:bit goes out of range or restarts, the app reconnects by itself for about two minutes. USB: Chrome or Edge on a computer, using the same text lines over serial.
-- **On the wrist.** The flowchart step the device is on, the UV value it is using, its own sensor and the online value, the sunscreen countdown with a draining bar, and buttons for Done (A), Check now, demo timings and power.
-- **History.** Sunscreen applications per day over 7, 14 or 30 days as a chart and a table, today's time in the sun by UV band (counted while the device is connected and measuring), reminders, going inside, a timestamped event log, CSV export, a sunscreen guide, and optional notifications.
+- **Live UV for where you are.** It uses your location, or a town you search for, and asks [Open-Meteo](https://open-meteo.com/) for the UV index there right now, today's hourly curve and peak, where it is heading over the next hours, the sun protection times (the hours with UV 3 or more), and the peak UV for each of the next 7 days. It sends `uv=<value>` to the device when it connects, every 10 minutes (adjustable), whenever you refresh, and again if the device reports it has lost the value (for example after a restart).
+- **Connect over Bluetooth or USB.** Bluetooth: Chrome or Edge on Android, Windows, macOS and ChromeOS, or the Bluefy browser on iPhone and iPad; if the micro:bit goes out of range or restarts, the app reconnects by itself for about two minutes, and a Reconnect button brings back the last device at any time. USB: Chrome or Edge on a computer, using the same text lines over serial. A short "get started" card walks a new user through the three steps the first time.
+- **On the wrist.** The flowchart step the device is on, the UV value it is using, its own sensor and the online value, applications since power-on, and buttons for Done (A), Check now, demo timings and power.
+- **Sunscreen timer.** The wearable's own countdown with a draining bar while it is connected. Without the wearable, **Sunscreen on now** starts the same 2 hour timer in the page, which keeps running with the page closed and can notify you when it is time to reapply.
+- **Measured today.** The wearable's UV readings through the day (one a minute while it is connected and measuring) on the same chart as the forecast curve for your location, so you can see how the two compare.
+- **History.** Sunscreen applications per day over 7, 14 or 30 days as a chart and a table, today's time in the sun by UV band, reminders, going inside, a timestamped event log, CSV export, a sunscreen guide, and optional notifications.
+- **Appearance.** Follows the phone's light or dark setting, or pick one; every chart has a plain-text twin for screen readers and small screens.
 - **Tools.** Zero the sensor in the dark, calibrate it to the live UV index in one click, ping, debug lines, and a raw console for any command.
 - **Try a demo device** runs a pretend micro:bit that speaks the same protocol, so the app can be shown without hardware. Its events are marked *demo* and are never kept in the history.
 - **Install it.** On Android (Chrome) or a desktop browser, "Add to Home screen" or "Install" turns the page into an app of its own; it opens without a network connection too, so the Bluetooth side keeps working offline. There is also a "keep the screen on while connected" option, since a phone that sleeps stops sending UV updates.
@@ -153,11 +171,15 @@ Leave P1 unconnected: the reading is noisy, so you will see the **CHECK SENSOR**
 | `pxt.json`, `main.ts`, `main.blocks` | The same project as a MakeCode GitHub project: settings, the program as JavaScript in section order, and the Blocks layout |
 | `docs/sunburn-flowchart.pdf`, `docs/sunburn-flowchart.png` | The flowchart the program follows |
 | `docs/blocks-overview.png` | The Blocks view zoomed out |
-| `index.html`, `.nojekyll` | The companion web app (one file, no build step), served as the site root; `.nojekyll` makes Pages publish the files as they are |
+| `index.html`, `app.css`, `app.js`, `.nojekyll` | The companion web app (no build step), served as the site root; `.nojekyll` makes Pages publish the files as they are |
+| `docs/poster/sunburn-code-poster-A3.pdf`, `docs/poster/sheet-1-overview.png`, `docs/poster/workspace-overview.png` | The code poster: every block with its label on A3 sheets, sheet 1 as a picture, and the bare workspace |
+| `tools/poster/make-poster.js`, `tools/poster/sections.json` | Generates the poster from the project (see section 1) |
 | `manifest.webmanifest`, `sw.js`, `icon.svg`, `icon-192.png`, `icon-512.png` | What makes the app installable and able to open offline |
 | `.github/workflows/pages.yml` | Publishes the repository to GitHub Pages (works whether the Pages source is a branch or GitHub Actions) |
 
 ## 9. What changed
+
+**App 2.0** — the page has its own 2 hour sunscreen timer for days without the wearable; the wearable's readings are charted against the forecast; UV outlook for the next 7 days and where today's UV is heading; get-started card; Reconnect button; light and dark appearance; the app is split into `index.html`, `app.css` and `app.js`. **Code poster** — `docs/poster/` and the generator in `tools/poster/`.
 
 **App 1.1** — Bluetooth auto-reconnect; the UV value is re-sent when the device loses it; sun protection times for the day; today's time in the sun by UV band; a sunscreen countdown bar; 7/14/30-day history; a sunscreen guide; demo events kept out of the history; installable with offline shell; keep-screen-on option; an inline message and an automatic retry when the UV service does not answer.
 

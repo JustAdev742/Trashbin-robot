@@ -1,0 +1,36 @@
+{
+  "title": "Sunburn device",
+  "subtitle": "micro:bit firmware 3.1 · the whole program, block by block",
+  "sections": [
+    { "num": 1, "title": "Start here: settings", "blocks": ["pxt-on-start"],
+      "text": "The on start block. First every setting the program uses (sensor type, servo, screen, UV bands, timings), then the start-up steps: this is \"Device turns on\" on the flowchart. Change hardware and timings here and nowhere else." },
+    { "num": 2, "title": "The flowchart", "blocks": ["device_forever", "fn runFlowchart", "fn readUvSensor", "fn sensorReadingInRange", "fn showCheckSensor", "fn phoneSendingOnlineUv", "fn chooseUvValue", "fn uvBand", "fn showHappyFace", "fn moderateOrHighUv", "fn veryHighUv", "fn extremeUv", "fn sunscreenApplied", "fn start2HourReapplyTimer", "fn alreadyProtected", "fn wait5Minutes", "fn reapplyTimerExpired", "fn showReapplySunscreen", "fn deviceTurnsOn", "fn deviceTurnsOff"],
+      "text": "forever runs runFlowchart again and again. runFlowchart is the whole flowchart from top to bottom: read the UV sensor, sensor in range?, phone sending online UV?, UV index?, then one of the four branches, wait 5 minutes, reapply timer expired?. Every box and decision is a function with the same name, in the same order as the flowchart." },
+    { "num": 3, "title": "Buttons", "blocks": ["on Button.A", "on Button.B", "on Button.AB"],
+      "text": "A = done (sunscreen is on / going inside); A also skips a message scrolling on the LEDs, and while waiting it shows the UV index and the countdown. B = wake from standby. A+B = device turns off, or on again." },
+    { "num": 4, "title": "Alerts", "blocks": ["fn flashAndBeepUntilA", "fn stillWaitingForA", "fn tapArmUntilA", "fn standbyUntilButton"],
+      "text": "Flash and beep, tap the arm with the servo, and standby. Each one keeps going until A is pressed (or the app sends \"ack\"), the device is turned off, or its time limit runs out. No answer within the time limit means the device is probably not being worn, so it goes to standby until a button is pressed." },
+    { "num": 5, "title": "Screen and LEDs", "blocks": ["fn showUvReading", "fn uvBandName", "fn showLedStatus", "fn showMessage", "fn ledsAllOn", "fn oledHeader", "fn oledShowMessage", "fn oledFooter"],
+      "text": "What the 5x5 LEDs show, and what the optional OLED screen shows: the UV number, the band, messages and the countdowns. Messages scroll across the LEDs when there is no OLED." },
+    { "num": 6, "title": "Sound and servo", "blocks": ["fn setupSound", "fn beep", "fn servoAngle", "fn servoOff", "fn servoTapOnce"],
+      "text": "Beeps on the V2 speaker (or a buzzer on P0), and the servo on P2 whose arm taps the wrist." },
+    { "num": 7, "title": "Bluetooth and serial", "blocks": ["fn advertiseOverBluetooth", "bluetooth_on_connected", "bluetooth_on_disconnected", "bluetooth_on_data_received", "serial_on_data_received", "every_interval", "fn sendLine", "fn sendEvent", "fn sendStatus", "fn handleCommand", "fn calibrateToKnownUv"],
+      "text": "Talks to the phone app (Bluetooth UART) and to the USB serial console with the same text lines. Out every 2 s: st=wait;uv=7.3;sen=7.1;onl=6.5;band=vhigh;spf=5400;spfn=3;fw=3.1;demo=0. Out on events: ev=on, off, sunscreen, reapply, inside, standby, error. In, one per line: uv=6.5, ack, zero, cal=7, demo=1, power=0, debug=1, ping, read." },
+    { "num": 8, "title": "Helpers", "blocks": ["fn applySensorPreset", "fn applyTimings", "fn sortNumbers", "fn formatNumber", "fn formatTime", "fn twoDigits", "fn reapplyCountdownText", "fn cleanText", "fn isBlank", "fn debugLog"],
+      "text": "Small tools used by the rest: sensor presets, the timings, sorting, number and time formatting, tidying up commands, and the debug lines (send debug=1 to see them)." },
+    { "num": 9, "title": "OLED screen driver (optional)", "blocks": ["fn setupOled", "fn oledInitCommands", "fn loadFont", "fn buildNibbleTable", "fn fontByte", "fn oledCommand", "fn oledData", "fn oledSetPosition", "fn oledClear", "fn oledWriteText", "fn oledWriteRow", "fn oledWriteBig"],
+      "text": "Only used if you add a 128x64 I2C screen (SSD1306 or SH1106) on P19/P20. Draws text on it without needing an extension. The program detects the screen at start-up and works exactly the same without one." }
+  ],
+  "eventLabels": {
+    "pxt-on-start": { "name": "on start", "kind": "Runs once when the micro:bit powers up" },
+    "device_forever": { "name": "forever", "kind": "Runs again and again, for ever" },
+    "on Button.A": { "name": "on button A pressed", "kind": "Event: runs each time A is pressed" },
+    "on Button.B": { "name": "on button B pressed", "kind": "Event: runs each time B is pressed" },
+    "on Button.AB": { "name": "on button A+B pressed", "kind": "Event: runs when A and B are pressed together" },
+    "bluetooth_on_connected": { "name": "on bluetooth connected", "kind": "Event: a phone or computer connected" },
+    "bluetooth_on_disconnected": { "name": "on bluetooth disconnected", "kind": "Event: the phone went away" },
+    "bluetooth_on_data_received": { "name": "on bluetooth data received", "kind": "Event: a line of text arrived over Bluetooth" },
+    "serial_on_data_received": { "name": "on serial data received", "kind": "Event: a line of text arrived over USB" },
+    "every_interval": { "name": "every 2000 ms", "kind": "Runs every 2 seconds in the background" }
+  }
+}
