@@ -2,7 +2,7 @@
 
 A UV wearable for the BBC micro:bit that follows the **Sunburn Flowchart**: it reads a UV sensor, combines it with the online UV index sent by a phone over Bluetooth, and then flashes, beeps or taps your arm until you put sunscreen on. Two hours later it reminds you to reapply. A companion web app at **https://justadev742.github.io/Trashbin-robot/** supplies the live UV index for your location over Bluetooth and shows the device's status and history (section 6).
 
-The whole program is real MakeCode blocks (no grey JavaScript blocks), laid out in nine numbered sections that follow the flowchart box by box. The **code poster** in `docs/poster/` shows every block of it at readable size with a label saying what it does (section 1).
+The whole program is real MakeCode blocks (no grey JavaScript blocks), laid out in nine numbered sections that follow the flowchart box by box. The **posters** in `docs/poster/` show it on paper: a one-sheet wall poster where the flowchart is built from the real blocks, and a full set with every block and a plain-English note (section 1).
 
 ![The Blocks view zoomed out: nine numbered sections in two rows](docs/blocks-overview.png)
 
@@ -35,32 +35,39 @@ Sections 1 and 2 are the whole program. Section 1 is the `on start` block with e
 
 Every function block has a comment: click the small **?** icon on a block to read what it does. Do not use **Format code** or **Clean up blocks** from the workspace menu, as that throws the layout away.
 
-### The code poster
+### The posters
 
-The whole program on paper, every block with a note in plain English saying what it does, written for anyone (parents and visitors at an expo included, not only programmers). Three ready-to-print versions live in `docs/poster/`:
+Two things, both generated from the project and written for anyone (parents and visitors at an expo, not only programmers):
 
-| File | Sheets | For | Wall space, roughly |
-|---|---|---|---|
-| `sunburn-code-poster-A3.pdf` | 19 × A3 | a home or school printer; bind it as a booklet for a table, or pin it up as a grid | 1.5 m × 1.7 m (5 across, 4 down) |
-| `sunburn-code-poster-A1.pdf` | 6 × A1 | an expo wall; the same size blocks as A3, so it reads up close | 1.8 m × 1.7 m (3 across, 2 down) |
-| `sunburn-code-poster-A0.pdf` | 5 × A0 | a big wall, read from a step back | 2.5 m × 1.7 m, or 3.4 m in a row |
+**The wall poster** (`docs/poster/sunburn-wall-poster-A1.pdf`, one sheet). The Sunburn Flowchart built from the real blocks of the program: follow the arrows from "Device turns on" through the sensor check, the phone, the four sun levels, the sunscreen timer, the 5 minute wait and back to the top. Each red label is a box of the flowchart, the picture under it is the actual block that does that job, and the note says what it does in plain English. Down the side: the original flowchart, the two buttons, the whole program at a glance, what the block colours mean, and a glossary. This is the piece for the wall.
 
-Sheet 1 of every set is landscape: what the device does, how to read the sheets, the whole workspace at a glance, the flowchart, what the block colours mean, an index of the nine sections, and a glossary (UV index, micro:bit, block, sensor, servo, Bluetooth, and how to read names like `uvSampleCount`). The other sheets are portrait and show all 74 blocks photographed from the MakeCode editor, each with its name, what kind of block it is, what it does, which blocks use it and which blocks it calls on. Nothing is left out in any size; the bigger sheets just hold more blocks each.
+![The wall poster](docs/poster/wall-poster.png)
 
-**Printing:** print at 100% ("actual size", not "fit to page"), single-sided, sheet 1 in landscape and the rest in portrait. Any print shop can do A1 and A0 from the PDF; ask for matte paper so the blocks do not glare under lights. For an expo with little wall space, print sheet 1 alone at A1 or A0 for the wall and put the A3 set on the table as a booklet.
+**The full poster** (`docs/poster/sunburn-code-poster-A3.pdf`, 19 sheets), every one of the 74 blocks with its note, sheet 1 being an overview with the flowchart, the colour key, the glossary and an index. Bind it as a booklet for the table; visitors who want to see every helper block leaf through it. The same set exists as 6 A1 sheets (`-A1.pdf`) or 5 A0 sheets (`-A0.pdf`) if there is a wall for it.
 
-![Sheet 1 of the code poster](docs/poster/sheet-1-overview.png)
+| File | Sheets | Size on the wall |
+|---|---|---|
+| `sunburn-wall-poster-A1.pdf` | 1 × A1 | 59 cm × 84 cm |
+| `sunburn-wall-poster-A1-tiles-A3.pdf` | 4 × A3 | the same poster at 93 %, 55 cm × 78 cm, from an A3 printer: cut along the corner marks and join the four sheets edge to edge |
+| `sunburn-wall-poster-A0.pdf` | 1 × A0 | 84 cm × 119 cm, blocks half as big again |
+| `sunburn-wall-poster-A0-tiles-A3.pdf` | 9 × A3 | the A0 poster at 99 % from an A3 printer |
+| `sunburn-code-poster-A3.pdf` | 19 × A3 | booklet, or a 1.5 m × 1.7 m grid |
+| `sunburn-code-poster-A1.pdf` | 6 × A1 | 1.8 m × 1.7 m |
+| `sunburn-code-poster-A0.pdf` | 5 × A0 | 2.5 m × 1.7 m |
 
-The poster is generated from the project itself, so it must be regenerated after any change to `main.ts` / `sunburn-device.mkcd`:
+**Printing:** always 100 % ("actual size", never "fit to page"), single-sided; the wall poster is portrait, sheet 1 of the full poster is landscape and the rest portrait. Any print shop prints A1 and A0 from the PDF; ask for matte paper. For the tiled versions, print the A3 pages on plain paper, cut along the small corner marks, and stick the sheets edge to edge on card or straight onto the wall.
+
+Both are generated from the project itself, so they must be regenerated after any change to `main.ts` / `sunburn-device.mkcd`:
 
 ```
 npm i -g playwright && npx playwright install chromium
-node tools/poster/make-poster.js                # A3, 19 sheets
-node tools/poster/make-poster.js --sheet A1     # 6 sheets; also A2 and A0
+node tools/poster/make-wall-poster.js              # the wall poster, A1 (and its 4 A3 tiles); --sheet A0 for A0 (and 9 tiles)
+node tools/poster/make-poster.js                   # the full poster, A3, 19 sheets
+node tools/poster/make-poster.js --sheet A1        # 6 sheets; also A2 and A0
 node tools/poster/make-poster.js --sheet A0 --zoom 1 --text 2   # bigger blocks and text for reading from further away (more sheets)
 ```
 
-The script opens the real MakeCode editor in a headless browser, imports `sunburn-device.mkcd`, photographs every top-level block, takes the section list and the plain-English notes from `tools/poster/sections.json`, packs the sheets and prints the PDF. Captures are cached per version of the code, so re-running it for another size or a wording change takes seconds. When you add a function to the program, add it to the right section in `sections.json` with a note in plain English; the script warns about any block it has no place for.
+The scripts open the real MakeCode editor in a headless browser, import `sunburn-device.mkcd`, photograph every top-level block, take the section list and the plain-English notes from `tools/poster/sections.json`, lay out the sheets and print the PDFs. The wall poster's rows and arrows are listed at the top of `make-wall-poster.js`; the blocks shrink until the whole flowchart fits the sheet. Captures are cached per version of the code, so re-running for another size or a wording change takes seconds. When you add a function to the program, add it to the right section in `sections.json` with a note in plain English; the scripts warn about any block they have no place for.
 
 ## 2. Wiring
 
@@ -184,12 +191,15 @@ Leave P1 unconnected: the reading is noisy, so you will see the **CHECK SENSOR**
 | `docs/sunburn-flowchart.pdf`, `docs/sunburn-flowchart.png` | The flowchart the program follows |
 | `docs/blocks-overview.png` | The Blocks view zoomed out |
 | `index.html`, `app.css`, `app.js`, `.nojekyll` | The companion web app (no build step), served as the site root; `.nojekyll` makes Pages publish the files as they are |
-| `docs/poster/sunburn-code-poster-A3.pdf`, `-A1.pdf`, `-A0.pdf`, `docs/poster/sheet-1-overview.png`, `docs/poster/workspace-overview.png` | The code poster in three sizes: every block with a plain-English note, sheet 1 as a picture, and the bare workspace |
-| `tools/poster/make-poster.js`, `tools/poster/sections.json` | Generates the poster from the project (see section 1) |
+| `docs/poster/sunburn-wall-poster-A1.pdf`, `-A0.pdf`, `-A1-tiles-A3.pdf`, `-A0-tiles-A3.pdf`, `docs/poster/wall-poster.png` | The wall poster: the flowchart built from the real blocks, one sheet, and the same cut into A3 tiles |
+| `docs/poster/sunburn-code-poster-A3.pdf`, `-A1.pdf`, `-A0.pdf`, `docs/poster/sheet-1-overview.png`, `docs/poster/workspace-overview.png` | The full poster in three sizes: every block with a plain-English note, sheet 1 as a picture, and the bare workspace |
+| `tools/poster/make-wall-poster.js`, `tools/poster/make-poster.js`, `tools/poster/sections.json` | Generate the posters from the project (see section 1) |
 | `manifest.webmanifest`, `sw.js`, `icon.svg`, `icon-192.png`, `icon-512.png` | What makes the app installable and able to open offline |
 | `.github/workflows/pages.yml` | Publishes the repository to GitHub Pages (works whether the Pages source is a branch or GitHub Actions) |
 
 ## 9. What changed
+
+**Wall poster** — one sheet for an expo wall: the flowchart built from the real blocks with plain-English notes, as A1, A0, or A3 tiles for an A3 printer.
 
 **Poster, plain English** — every block's note rewritten for a general audience, a glossary and a short story of what the device does on sheet 1, and A1 and A0 sets for a wall as well as the A3 set.
 

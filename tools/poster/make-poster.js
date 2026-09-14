@@ -390,4 +390,5 @@ async function main() {
   console.log(`wrote ${path.relative(ROOT, OUT)}/${pdfName} (${(size / 1e6).toFixed(1)} MB, ${layout.pages} ${SIZE} sheets at zoom ${ZOOM} text ${TEXT}, sections start on sheets ${where}); ${Object.keys(caps.pictures).length} blocks`);
 }
 
-main().catch(e => { console.error('ERR', e.stack || e.message); process.exit(1); });
+module.exports = { spec, labels: () => parseLabels(mainTs), capture, esc, ROOT, OUT, CACHE, HARNESS, SHEETS };
+if (require.main === module) main().catch(e => { console.error('ERR', e.stack || e.message); process.exit(1); });
