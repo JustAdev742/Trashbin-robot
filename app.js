@@ -5,7 +5,7 @@
    state & storage · rendering · charts · wiring up
    =================================================================== */
 
-const APP_VERSION = '2.1';
+const APP_VERSION = '2.2';
 const TIMER_MS = 2 * 3600000;   // the reapply timer of the flowchart
 
 // ---------- protocol ----------
@@ -145,28 +145,31 @@ class SerialLink {
 class DemoLink {
   constructor() {
     this.kind = 'Demo'; this.name = 'Demo micro:bit'; this.onLine = () => {}; this.onClose = () => {};
-    this.d = { on: true, st: 'on', sensor: 1.4, online: -1, onlineAt: 0, protection: 0, timer: 0, spfn: 0, demo: true, ack: false, any: false, band: 'low' };
+    this.d = { on: true, st: 'on', sensor: 1.4, online: -1, onlineAt: 0, protection: 0, timer: 0, spfn: 0, demo: 1, show: false, showStep: 0, ack: false, any: false, band: 'low' };
     this.timers = [];
   }
   later(ms, fn) { this.timers.push(setTimeout(fn, ms)); }
   emit(line) { this.later(0, () => this.onLine(withChecksum(line))); }   // the real firmware adds a checksum to every line
   async connect() {
-    this.emit('hello;fw=3.2');
+    this.emit('hello;fw=3.3');
     this.statusTimer = setInterval(() => this.emit(this.statusLine()), 2000);
     this.later(1500, () => this.cycle());
   }
   uvNow() { const d = this.d; const fresh = d.onlineAt && Date.now() - d.onlineAt < 30 * 60000; return Math.max(d.sensor, fresh ? d.online : 0); }
+  // show mode: like the firmware, the sensor is replaced by pretend values that climb through every band
+  showNext() { const d = this.d; const values = [1, 5, 9, 12]; d.sensor = values[d.showStep]; d.showStep = (d.showStep + 1) % values.length; }
   bandOf(uv) { const r = Math.round(uv); return r <= 2 ? 'low' : r <= 7 ? 'modhigh' : r <= 10 ? 'vhigh' : 'extreme'; }
   statusLine() {
     const d = this.d; const uv = this.uvNow();
     const fresh = d.onlineAt && Date.now() - d.onlineAt < 30 * 60000;
     const spf = d.timer ? Math.max(0, Math.floor((d.timer - Date.now()) / 1000)) : -1;
-    return `st=${d.st};uv=${uv.toFixed(1)};sen=${d.sensor.toFixed(1)};onl=${fresh ? d.online.toFixed(1) : '-1'};band=${this.bandOf(uv)};spf=${spf};spfn=${d.spfn};fw=3.2;demo=${d.demo ? 1 : 0};pv=${(d.sensor * 0.1).toFixed(1)}`;
+    return `st=${d.st};uv=${uv.toFixed(1)};sen=${d.sensor.toFixed(1)};onl=${fresh ? d.online.toFixed(1) : '-1'};band=${this.bandOf(uv)};spf=${spf};spfn=${d.spfn};fw=3.3;demo=${d.show ? 2 : d.demo};pv=${(d.sensor * 0.1).toFixed(1)}`;
   }
   // the flowchart, sped up: a "5 minute" wait is 10 s, the reapply timer 60 s, alerts give up after 20 s
   cycle() {
     const d = this.d; if (!d.on) return;
     d.st = 'reading';
+    if (d.show) this.showNext();
     this.later(800, () => {
       const uv = this.uvNow(); const band = this.bandOf(uv); d.band = band;
       const next = (ms) => this.later(ms, () => this.cycle());
@@ -180,14 +183,14 @@ class DemoLink {
       if (band === 'low') { d.st = 'safe'; waitThenTimer(); return; }
       if (band === 'extreme') {
         d.st = 'alert'; d.ack = false;
-        this.waitForAck(20000, acked => { if (acked) this.emit('ev=inside'); this.standby(() => this.cycle()); });
+        this.waitForAck(d.show ? 6000 : 20000, acked => { if (acked || d.show) this.emit('ev=inside'); this.standby(() => this.cycle()); });
         return;
       }
       const level = band === 'vhigh' ? 2 : 1;
       if (d.protection >= level) { d.st = 'protected'; waitThenTimer(); return; }
       d.st = 'alert'; d.ack = false;
-      this.waitForAck(20000, acked => {
-        if (acked) { d.protection = level; d.spfn++; d.timer = Date.now() + 60000; this.emit('ev=sunscreen'); waitThenTimer(); }
+      this.waitForAck(d.show ? 6000 : 20000, acked => {
+        if (acked || d.show) { d.protection = level; d.spfn++; d.timer = Date.now() + 60000; this.emit('ev=sunscreen'); waitThenTimer(); }
         else this.standby(() => this.cycle());
       });
     });
@@ -199,7 +202,8 @@ class DemoLink {
   }
   standby(done) {
     const d = this.d; d.st = 'standby'; d.any = false; this.emit('ev=standby');
-    const poll = () => { if (!d.on) return; if (d.any) { d.any = false; done(); } else this.later(200, poll); };
+    const t0 = Date.now();
+    const poll = () => { if (!d.on) return; if (d.any || (d.show && Date.now() - t0 > 5000)) { d.any = false; done(); } else this.later(200, poll); };
     poll();
   }
   async send(text) {
@@ -208,8 +212,10 @@ class DemoLink {
       case 'uv': { const v = parseFloat(value); if (v >= 0 && v <= 20) { d.online = v; d.onlineAt = Date.now(); this.emit('ok=uv'); } else this.emit('err=uv'); break; }
       case 'ack': d.ack = true; d.any = true; this.emit('ok=ack'); break;
       case 'read': this.emit(this.statusLine()); break;
-      case 'ping': this.emit('pong;fw=3.1;oled=0'); break;
-      case 'demo': d.demo = value === '1'; this.emit('ok=demo'); break;
+      case 'ping': this.emit('pong;fw=3.3;oled=0'); break;
+      case 'demo': d.demo = value === '0' ? 0 : 1; d.show = value === '2'; this.emit('ok=demo'); break;
+      case 'vol': this.emit('ok=vol'); break;
+      case 'screen': this.emit('err=screen'); break;
       case 'debug': this.emit('ok=debug'); break;
       case 'zero': this.emit('ok=zero;v=0.0'); break;
       case 'cal': this.emit(parseFloat(value) > 0 ? 'ok=cal' : 'err=cal'); break;
@@ -393,9 +399,11 @@ function handleLine(raw) {
     sendUvIfFresh(line.startsWith('hello') ? 'connected' : 'ping');
   } else if (line.startsWith('ok=') || line.startsWith('err=')) {
     const [k, v] = line.split('=');
-    if (k === 'err') toast(`Device replied: ${line}`);
+    if (k === 'err' && v !== 'screen') toast(`Device replied: ${line}`);
     else if (v === 'cal') toast('Sensor calibrated to the live UV index');
     else if (v === 'zero') toast('Sensor zero point set');
+    else if (v === 'screen') toast(k === 'ok' ? 'Screen found and switched on' : 'No screen answered on 0x3C or 0x3D');
+    else if (v === 'demo' || v === 'ack') send('read');   // show the new state straight away instead of after the next status line
   }
   render();
 }
@@ -611,7 +619,7 @@ function renderLink() {
   $('btnDisconnect').hidden = !link;
   $('btnReconnect').hidden = !!link || !state.lastBle; if (state.lastBle) $('btnReconnect').textContent = `Reconnect to ${state.lastBle.name}`;
   $('btnBle').hidden = !!link; $('btnSerial').hidden = !!link; $('btnDemo').hidden = !!link;
-  for (const id of ['btnAck', 'btnRead', 'btnDemoTimings', 'btnPower', 'btnZero', 'btnPing', 'btnCmd', 'cmdInput', 'debugTog', 'volume']) $(id).disabled = !link;
+  for (const id of ['btnAck', 'btnRead', 'btnDemoTimings', 'btnShow', 'btnPower', 'btnZero', 'btnPing', 'btnCmd', 'cmdInput', 'debugTog', 'volume', 'btnScreen']) $(id).disabled = !link;
   $('btnCal').disabled = !link || !onlineIsFresh();
 }
 function renderUv() {
@@ -664,7 +672,7 @@ function showState(title, desc, iconName, tone) {
 function renderDevice() {
   const s = state.device.status; const link = state.link;
   const stats = $('devStats');
-  $('spfMeter').hidden = true;
+  $('spfMeter').hidden = true; renderLinkHealth();
   if (!link) {
     showState('Not connected', 'Connect the micro:bit to see what it is doing.', 'watch', '');
     stats.replaceChildren(); $('devAge').textContent = ''; return;
@@ -676,7 +684,6 @@ function renderDevice() {
   }
   const step = STEPS[s.st] || [s.st, '', 'clock', ''];
   showState(step[0], s.st === 'error' ? sensorAdvice(s) : step[1], step[2], step[3]);
-  renderLinkHealth();
   const uv = parseFloat(s.uv), sen = parseFloat(s.sen), onl = parseFloat(s.onl), spf = parseInt(s.spf, 10);
   const b = isFinite(uv) ? bandFor(uv) : null;
   const tile = (l, v, sub) => el('div', { class: 'stat' }, el('div', { class: 'l' }, l), el('div', { class: 'v' }, v, sub ? el('small', {}, ' ' + sub) : null));
@@ -686,9 +693,11 @@ function renderDevice() {
     tile('From this app', onl >= 0 ? onl.toFixed(1) : 'none in the last 30 min'),
     tile('Sunscreen due in', spf >= 0 ? fmtCountdown(spf) : 'no timer', spf >= 0 ? `at ${fmtTime(Date.now() + spf * 1000)}` : ''),
     tile('Sunscreen applications', s.spfn || '0', 'since power-on'),
-    tile('Timings', s.demo === '1' ? 'demo (fast)' : 'normal'),
+    tile('Timings', s.demo === '2' ? 'show mode' : s.demo === '1' ? 'demo (fast)' : 'normal'),
   );
-  $('btnDemoTimings').textContent = `Demo timings: ${s.demo === '1' ? 'on' : 'off'}`;
+  $('btnDemoTimings').textContent = `Demo timings: ${s.demo === '0' ? 'off' : 'on'}`;
+  $('btnShow').textContent = s.demo === '2' ? 'Show mode: on' : 'Show mode';
+  $('btnShow').classList.toggle('primary', s.demo === '2');
   $('btnPower').textContent = s.st === 'off' ? 'Turn on' : 'Turn off';
   if (spf >= 0) {   // how much of the 2 hours (1 minute in demo) is left
     const total = s.demo === '1' ? 60 : 7200;
@@ -1029,7 +1038,9 @@ function init() {
   $('btnSendNow').addEventListener('click', () => sendUvIfFresh('manual'));
   $('btnAck').addEventListener('click', () => send('ack'));
   $('btnRead').addEventListener('click', () => send('read'));
-  $('btnDemoTimings').addEventListener('click', () => { const s = state.device.status; send(`demo=${s && s.demo === '1' ? 0 : 1}`); });
+  $('btnDemoTimings').addEventListener('click', () => { const s = state.device.status; send(`demo=${s && s.demo !== '0' ? 0 : 1}`); });
+  $('btnShow').addEventListener('click', () => { const s = state.device.status; send(`demo=${s && s.demo === '2' ? 0 : 2}`); });
+  $('btnScreen').addEventListener('click', () => send('screen=1'));
   $('btnPower').addEventListener('click', () => { const s = state.device.status; send(`power=${s && s.st === 'off' ? 1 : 0}`); });
   $('btnZero').addEventListener('click', () => { if (confirm('Cover the sensor completely (dark), then press OK.')) send('zero'); });
   $('btnCal').addEventListener('click', () => { if (state.online && confirm(`Hold the sensor in full sun, then press OK to set its scale so it reads ${state.online.uv.toFixed(1)} (the live UV index here).`)) send(`cal=${state.online.uv.toFixed(1)}`); });

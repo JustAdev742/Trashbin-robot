@@ -1,5 +1,5 @@
 // =====================================================================
-//  SUNBURN DEVICE  -  micro:bit firmware 3.2
+//  SUNBURN DEVICE  -  micro:bit firmware 3.3
 // =====================================================================
 //  A UV wearable that follows the "Sunburn Flowchart":
 //  read the UV sensor, combine it with the online UV index from a phone,
@@ -63,11 +63,13 @@ let sensorRetrySeconds = 5
 // USB link speed: 1 = normal (115200), 2 = slow (9600). Use 2 if the app says lines
 // arrive damaged, and choose 9600 in the app's Tools as well
 let usbSpeed = 1
-let firmwareVersion = "3.2"
+let firmwareVersion = "3.3"
 
 // ----- State variables: the program updates these itself -----
 // (variables that start at 0, false or empty do not show in Blocks)
 let demoMode = false
+let showMode = false
+let showStep = 0
 let deviceOn = false
 let stateName = ""
 let currentUv = 0
@@ -107,10 +109,15 @@ setupSound()
 setupOled()
 setupUsbLink()
 advertiseOverBluetooth()
-// Hold B while switching on for demo timings: 10 s waits and a 1 minute sunscreen timer
-if (input.buttonIsPressed(Button.B)) {
+// Hold B while switching on for demo timings: 10 s waits and a 1 minute sunscreen timer.
+// Hold A for show mode: demo timings, pretend UV values that climb through every band, and
+// alerts that answer themselves, so the device performs the whole flowchart on its own
+if (input.buttonIsPressed(Button.B) || input.buttonIsPressed(Button.A)) {
     demoMode = true
     applyTimings()
+}
+if (input.buttonIsPressed(Button.A)) {
+    showMode = true
 }
 deviceTurnsOn()
 
@@ -159,7 +166,7 @@ function runFlowchart() {
 }
 
 // Box: Read UV sensor.  Analog pin P1. Takes the middle value of several
-// samples so one noisy sample cannot set off a false alarm.
+// samples so one noisy sample cannot set off a false alarm. In show mode the reading is replaced by a pretend value that climbs through every band.
 function readUvSensor() {
     stateName = "reading"
     let samples: number[] = []
@@ -172,6 +179,11 @@ function readUvSensor() {
     sensorNoise = samples[uvSampleCount - 1] - samples[0]
     sensorVolts = sensorRaw * 3.3 / 1023
     sensorUv = (sensorVolts - uvZeroVolts) / uvVoltsPerIndex
+    if (showMode) {
+        sensorUv = showUvNext()
+        sensorRaw = 400
+        sensorNoise = 0
+    }
     debugLog("raw " + sensorRaw + " noise " + sensorNoise)
 }
 
@@ -200,6 +212,7 @@ function sensorReadingInRange(): boolean {
 // message and beeps again about once a minute, so a device on a bench does not
 // beep all day. A bad sensor is never treated as "safe". The app gets one ev=error
 // per problem, not one per retry, and the status line carries the pin voltage.
+// While it waits, A shows the pin voltage on the LEDs and B retries at once.
 function showCheckSensor() {
     stateName = "error"
     if (!sensorErrorReported) {
@@ -215,7 +228,17 @@ function showCheckSensor() {
     }
     oledFooter("pin " + formatNumber(sensorVolts) + " V")
     sensorErrorCount += 1
-    basic.pause(sensorRetrySeconds * 1000)
+    // While waiting to retry: A shows the pin voltage on the LEDs, B retries straight away
+    ackPressed = false
+    anyButtonPressed = false
+    let retryTime = input.runningTime() + sensorRetrySeconds * 1000
+    while (deviceOn && !anyButtonPressed && input.runningTime() < retryTime) {
+        basic.pause(200)
+    }
+    if (ackPressed) {
+        ackPressed = false
+        showMessage("P1 " + formatNumber(sensorVolts) + "V")
+    }
 }
 
 // Decision: Phone connected and sending online UV?  Yes while a UV value from
@@ -443,11 +466,17 @@ function flashAndBeepUntilA(fast: boolean) {
         tone = 659
     }
     let giveUpTime = input.runningTime() + alertGiveUpMs
+    if (showMode) {
+        giveUpTime = input.runningTime() + 6000
+    }
     while (stillWaitingForA(giveUpTime)) {
         ledsAllOn()
         beep(tone, beatMs)
         basic.clearScreen()
         basic.pause(beatMs)
+    }
+    if (showMode) {
+        ackPressed = true
     }
 }
 
@@ -457,10 +486,16 @@ function tapArmUntilA() {
     ackPressed = false
     basic.showIcon(IconNames.Angry)
     let stopTappingTime = input.runningTime() + tapMaxMs
+    if (showMode) {
+        stopTappingTime = input.runningTime() + 6000
+    }
     while (stillWaitingForA(stopTappingTime)) {
         servoTapOnce()
     }
     servoOff()
+    if (showMode) {
+        ackPressed = true
+    }
     if (!ackPressed && deviceOn) {
         flashAndBeepUntilA(true)
     }
@@ -482,8 +517,12 @@ function standbyUntilButton() {
     basic.showIcon(IconNames.Asleep)
     oledShowMessage("Standby. Press a button to check again")
     oledFooter("")
+    let wakeTime = input.runningTime() + 5000
     while (deviceOn && !anyButtonPressed) {
         basic.pause(200)
+        if (showMode && input.runningTime() > wakeTime) {
+            anyButtonPressed = true
+        }
     }
 }
 
@@ -655,7 +694,7 @@ function servoTapOnce() {
 //
 //  Device -> app every 2 s:  st=wait;uv=7.3;sen=7.1;onl=6.5;band=vhigh;spf=5400;spfn=3;fw=3.2;demo=0;pv=0.7;ck=183
 //  Device -> app on events:  ev=on  off  sunscreen  reapply  inside  standby  error
-//  App -> device commands:   uv=6.5  ack  zero  cal=7.0  demo=1  power=0  debug=1  vol=180  ping  read
+//  App -> device commands:   uv=6.5  ack  zero  cal=7.0  demo=0/1/2  power=0  debug=1  vol=180  screen=1  ping  read
 //  Every line out ends with ;ck=N, the character codes added up modulo 256, so the app can drop a damaged line
 
 // The USB link to a laptop: the same lines as Bluetooth. No padding spaces after
@@ -735,7 +774,9 @@ function sendStatus() {
     status = status + ";spf=" + reapplySeconds
     status = status + ";spfn=" + sunscreenCount
     status = status + ";fw=" + firmwareVersion
-    if (demoMode) {
+    if (showMode) {
+        status = status + ";demo=2"
+    } else if (demoMode) {
         status = status + ";demo=1"
     } else {
         status = status + ";demo=0"
@@ -773,9 +814,21 @@ function handleCommand(command: string) {
     } else if (key == "cal") {
         calibrateToKnownUv(parseFloat(value))
     } else if (key == "demo") {
-        demoMode = value == "1"
+        demoMode = value != "0"
+        showMode = value == "2"
         applyTimings()
         sendLine("ok=demo")
+    } else if (key == "screen") {
+        if (value == "1") {
+            oledMode = 2
+        }
+        setupOled()
+        if (oledPresent) {
+            oledHeader()
+            sendLine("ok=screen")
+        } else {
+            sendLine("err=screen")
+        }
     } else if (key == "power") {
         if (value == "0" && deviceOn) {
             deviceTurnsOff()
@@ -924,6 +977,15 @@ function isBlank(code: number): boolean {
     return code == 32 || code == 13 || code == 10
 }
 
+// Show mode: the pretend UV values, one per trip round the flowchart, so the device
+// walks through low, moderate, very high and extreme without any sun
+function showUvNext(): number {
+    let values = [1, 5, 9, 12]
+    let uv = values[showStep]
+    showStep = (showStep + 1) % values.length
+    return uv
+}
+
 // The checksum on the end of every line: the character codes added up, 0-255.
 // The app drops a line whose sum does not match, so a byte lost on the way
 // (it happens over USB) cannot turn into a wrong number.
@@ -945,20 +1007,35 @@ function debugLog(text: string) {
 
 // ===== 9. OLED SCREEN DRIVER  (optional: only used if you add a 128x64 I2C screen) =====
 
-// Looks for a screen and sets it up. The program works exactly the same without one.
+// Looks for a screen and sets it up. It tries the usual address from the settings and
+// then the other one (60 and 61 are 0x3C and 0x3D). The program works exactly the same without one.
 function setupOled() {
     oledPresent = false
     if (oledMode > 0) {
         loadFont()
         buildNibbleTable()
-        oledCommand(174)
-        let screenStatus = pins.i2cReadNumber(oledAddress, NumberFormat.UInt8LE, false)
-        if (oledMode == 2 || screenStatus == 64) {
+        let found = oledAnswers()
+        if (!found) {
+            oledAddress = 121 - oledAddress
+            found = oledAnswers()
+            if (!found) {
+                oledAddress = 121 - oledAddress
+            }
+        }
+        if (oledMode == 2 || found) {
             oledInitCommands()
             oledPresent = true
             oledClear()
         }
     }
+}
+// Asks the screen at oledAddress whether it is there: after "display off" a real screen
+// (SSD1306 or SH1106) answers with its status byte's bit 6 set, which reads as 64 to 127.
+// Nothing at that address reads 0.
+function oledAnswers(): boolean {
+    oledCommand(174)
+    let screenStatus = pins.i2cReadNumber(oledAddress, NumberFormat.UInt8LE, false)
+    return screenStatus % 128 >= 64
 }
 
 // The standard start-up sequence for SSD1306 and SH1106 screens

@@ -1,4 +1,4 @@
-# Sunburn device — micro:bit firmware 3.2
+# Sunburn device — micro:bit firmware 3.3
 
 A UV wearable for the BBC micro:bit that follows the **Sunburn Flowchart**: it reads a UV sensor, combines it with the online UV index sent by a phone over Bluetooth, and then flashes, beeps or taps your arm until you put sunscreen on. Two hours later it reminds you to reapply. A companion web app at **https://justadev742.github.io/Trashbin-robot/** supplies the live UV index for your location over Bluetooth and shows the device's status and history (section 6).
 
@@ -43,7 +43,7 @@ Two things, both generated from the project and written for anyone (parents and 
 
 ![The wall poster](docs/poster/wall-poster.png)
 
-**The full poster** (`docs/poster/sunburn-code-poster-A3.pdf`, 19 sheets), every one of the 76 blocks with its note, sheet 1 being an overview with the flowchart, the colour key, the glossary and an index. Bind it as a booklet for the table; visitors who want to see every helper block leaf through it. The same set exists as 6 A1 sheets (`-A1.pdf`) or 5 A0 sheets (`-A0.pdf`) if there is a wall for it.
+**The full poster** (`docs/poster/sunburn-code-poster-A3.pdf`, 21 sheets), every one of the 78 blocks with its note, sheet 1 being an overview with the flowchart, the colour key, the glossary and an index. Bind it as a booklet for the table; visitors who want to see every helper block leaf through it. The same set exists as 7 A1 sheets (`-A1.pdf`) or 5 A0 sheets (`-A0.pdf`) if there is a wall for it.
 
 | File | Sheets | Size on the wall |
 |---|---|---|
@@ -51,8 +51,8 @@ Two things, both generated from the project and written for anyone (parents and 
 | `sunburn-wall-poster-A1-tiles-A3.pdf` | 4 × A3 | the same poster at 93 %, 55 cm × 78 cm, from an A3 printer: cut along the corner marks and join the four sheets edge to edge |
 | `sunburn-wall-poster-A0.pdf` | 1 × A0 | 84 cm × 119 cm, blocks half as big again |
 | `sunburn-wall-poster-A0-tiles-A3.pdf` | 9 × A3 | the A0 poster at 99 % from an A3 printer |
-| `sunburn-code-poster-A3.pdf` | 19 × A3 | booklet, or a 1.5 m × 1.7 m grid |
-| `sunburn-code-poster-A1.pdf` | 6 × A1 | 1.8 m × 1.7 m |
+| `sunburn-code-poster-A3.pdf` | 21 × A3 | booklet, or a 1.8 m × 1.7 m grid |
+| `sunburn-code-poster-A1.pdf` | 7 × A1 | 2.4 m × 1.7 m |
 | `sunburn-code-poster-A0.pdf` | 5 × A0 | 2.5 m × 1.7 m |
 
 **Printing:** always 100 % ("actual size", never "fit to page"), single-sided; the wall poster is portrait, sheet 1 of the full poster is landscape and the rest portrait. Any print shop prints A1 and A0 from the PDF; ask for matte paper. For the tiled versions, print the A3 pages on plain paper, cut along the small corner marks, and stick the sheets edge to edge on card or straight onto the wall.
@@ -62,8 +62,8 @@ Both are generated from the project itself, so they must be regenerated after an
 ```
 npm i -g playwright && npx playwright install chromium
 node tools/poster/make-wall-poster.js              # the wall poster, A1 (and its 4 A3 tiles); --sheet A0 for A0 (and 9 tiles)
-node tools/poster/make-poster.js                   # the full poster, A3, 19 sheets
-node tools/poster/make-poster.js --sheet A1        # 6 sheets; also A2 and A0
+node tools/poster/make-poster.js                   # the full poster, A3, 21 sheets
+node tools/poster/make-poster.js --sheet A1        # 7 sheets; also A2 and A0
 node tools/poster/make-poster.js --sheet A0 --zoom 1 --text 2   # bigger blocks and text for reading from further away (more sheets)
 ```
 
@@ -91,7 +91,7 @@ On an edge connector breakout board the pins are labelled the same as on the mic
 
 The big pads P0, P1, P2, 3V and GND are the same as the rings on the micro:bit itself, so crocodile clips work for the sensor. Crowtail, ElecFreaks, Kitronik and similar shields route the same pins to plugs: use the plug labelled P1 for the sensor, P2 for the servo and the I2C plug for a screen. Every GND is the same GND.
 
-**If the device shows a cross and CHECK SENSOR**, the reading on P1 makes no sense: the app's "On the wrist" card says what voltage the pin sees and which wire to look at. A steady 1 to 3 V indoors means the sensor's OUT wire is not on P1, or an ML8511 board is set as type 1. Readings that jump about mean a loose wire or an unpowered sensor. The device beeps and scrolls the message the first time and then about once a minute while the fault lasts, and retries every 5 seconds.
+**If the device shows a cross and CHECK SENSOR**, the reading on P1 makes no sense: the app's "On the wrist" card says what voltage the pin sees and which wire to look at. A steady 1 to 3 V indoors means the sensor's OUT wire is not on P1, or an ML8511 board is set as type 1. Readings that jump about mean a loose wire or an unpowered sensor. The device beeps and scrolls the message the first time and then about once a minute while the fault lasts, and retries every 5 seconds. While it waits, **A** scrolls the pin voltage across the LEDs and **B** retries at once.
 
 ## 3. Settings (section 1, the `on start` block)
 
@@ -102,7 +102,7 @@ The big pads P0, P1, P2, 3V and GND are the same as the rings on the micro:bit i
 | `soundOutput` | 1 = micro:bit V2 speaker, 2 = buzzer on P0 |
 | `soundVolume` | 0 to 255; how loud the beeps are (180 out of the box) |
 | `servoType`, `servoRestAngle`, `servoTapAngle` | 1 = positional servo (uses the two angles), 2 = continuous rotation |
-| `oledMode`, `oledType`, `oledAddress` | 0 = no screen, 1 = detect at start-up, 2 = always on; 1 = SSD1306, 2 = SH1106; 60 = 0x3C |
+| `oledMode`, `oledType`, `oledAddress` | 0 = no screen, 1 = detect at start-up, 2 = always on; 1 = SSD1306, 2 = SH1106; 60 = 0x3C. Detection tries 0x3C and 0x3D and accepts any screen that answers; **Find the screen** in the app repeats it |
 | `uvLowMax`, `uvHighMax`, `uvVeryHighMax` | the flowchart bands 0–2, 3–7, 8–10, 11+ (tested on the rounded UV index) |
 | `waitMinutes`, `reapplyHours`, `tapMaxMinutes` | the flowchart timings: 5 minutes, 2 hours, 2 minutes |
 | `alertGiveUpMinutes` | how long a flash-and-beep alert carries on with no answer before the device assumes it is not being worn and goes to standby |
@@ -134,7 +134,7 @@ One deliberate difference from a literal reading of the chart: the flowchart re-
 | Buttons | |
 |---|---|
 | **A** | "Done": sunscreen is on / I am going inside. Also wakes from standby, skips the rest of a message scrolling across the LEDs, and while the device is waiting between checks shows the UV index and the sunscreen countdown |
-| **B** | Wakes from standby. Hold B while switching on for **demo mode** (10 s waits, 1 minute sunscreen timer) |
+| **B** | Wakes from standby. Hold B while switching on for **demo timings** (10 s waits, 1 minute sunscreen timer). Hold **A** while switching on for **show mode**: demo timings, pretend UV values that climb through every band (1, 5, 9, 12), and alerts that answer themselves after 6 seconds, so the wearable performs the whole flowchart on its own with no sun and no sensor |
 | **A + B** | Device turns off / on. Bluetooth stays up so the app can turn it on again |
 
 Without an OLED, messages scroll across the LEDs one word at a time (press A to skip the rest). With one, the screen shows the UV number large, the band, the current message, and a countdown to the next check and the next sunscreen.
@@ -157,7 +157,7 @@ st=wait;uv=7.3;sen=7.1;onl=6.5;band=vhigh;spf=5400;spfn=3;fw=3.2;demo=0;pv=0.7;c
 | `band` | `low` `modhigh` `vhigh` `extreme` |
 | `spf` | seconds until sunscreen reapply is due (`-1` = no timer running) |
 | `spfn` | sunscreen applications acknowledged since power-on |
-| `fw` / `demo` | firmware version, and `1` while demo timings are on |
+| `fw` / `demo` | firmware version, and `1` while demo timings are on, `2` in show mode |
 | `pv` | the voltage on the sensor pin P1, so a wiring problem can be seen from the app |
 | `ck` | on the end of every line the device sends: the character codes of the line before `;ck=` added up, modulo 256. The app drops a line whose checksum does not match, so a byte lost over USB cannot turn into a wrong number |
 
@@ -170,10 +170,11 @@ st=wait;uv=7.3;sen=7.1;onl=6.5;band=vhigh;spf=5400;spfn=3;fw=3.2;demo=0;pv=0.7;c
 | `uv=6.5` | Push the online UV index (0 to 20; anything else gets `err=uv`) |
 | `ack` | Same as pressing A |
 | `zero` / `cal=7.0` | Calibrate the sensor (dark point / known UV index) |
-| `demo=1` / `demo=0` | Demo timings on / off |
+| `demo=1` / `demo=2` / `demo=0` | Demo timings on / show mode on (demo timings, pretend UV values, alerts answer themselves) / both off |
 | `power=0` / `power=1` | Turn off / on |
 | `debug=1` / `debug=0` | Extra `dbg:` lines on the serial console (raw sensor values, commands) |
 | `vol=180` | Beep volume 0 to 255 until the device restarts (the lasting setting is `soundVolume`) |
+| `screen=1` | Look for the OLED screen again on both addresses and switch it on; replies `ok=screen` or `err=screen` |
 | `ping` | Replies `pong;fw=3.2;oled=1` |
 | `read` | Send a status line immediately |
 
@@ -189,6 +190,8 @@ The micro:bit has no internet, so the app does the online half of the flowchart.
 - **History.** Sunscreen applications per day over 7, 14 or 30 days as a chart and a table, today's time in the sun by UV band, reminders, going inside, a timestamped event log, CSV export, a sunscreen guide, and optional notifications.
 - **Appearance.** Follows the phone's light or dark setting, or pick one; every chart has a plain-text twin for screen readers and small screens.
 - **Tools.** Zero the sensor in the dark, calibrate it to the live UV index in one click, beep volume, USB speed, ping, debug lines, and a raw console for any command.
+- **Expo mode.** The page runs itself for a stand or a big screen: it tours every card with a caption, shows the flowchart, the wiring and the code between them, and puts the wearable (the real one, or the demo device) into show mode so it performs the whole flowchart on its own. Start it with **Expo mode** in the header or by opening `?expo` on the end of the address; touching the page pauses it for 45 seconds, Esc or Exit stops it.
+- **Show mode** and **Find the screen** buttons on the device card.
 - **When something is wrong it says so in plain words.** CHECK SENSOR comes with the voltage the pin sees and which wire to look at. Lines from the device that fail their checksum are dropped and counted, and the card says how many arrived damaged and what to try (another cable or port, or the slow USB speed).
 - **Try a demo device** runs a pretend micro:bit that speaks the same protocol, so the app can be shown without hardware. Its events are marked *demo* and are never kept in the history.
 - **Install it.** On Android (Chrome) or a desktop browser, "Add to Home screen" or "Install" turns the page into an app of its own; it opens without a network connection too, so the Bluetooth side keeps working offline. There is also a "keep the screen on while connected" option, since a phone that sleeps stops sending UV updates.
@@ -216,6 +219,8 @@ Leave P1 unconnected: the reading is noisy, so you will see the **CHECK SENSOR**
 | `.github/workflows/pages.yml` | Publishes the repository to GitHub Pages (works whether the Pages source is a branch or GitHub Actions) |
 
 ## 9. What changed
+
+**3.3** — show mode (hold A at switch-on, or `demo=2`): pretend UV values through every band, alerts and standby that answer themselves, so the wearable performs the flowchart with no sun; the screen is looked for on both I2C addresses and any screen that answers is used, plus a `screen=1` command; during CHECK SENSOR, A shows the pin voltage and B retries. **App 2.2** — expo mode; Show mode and Find the screen buttons; the status refreshes straight after a mode change.
 
 **3.2** — every line the device sends ends with a checksum (`ck=`), and the status line carries the sensor pin voltage (`pv=`); no padding spaces after lines; a `usbSpeed` setting for a slow, reliable 9600 USB link; a `soundVolume` setting and a `vol=` command; CHECK SENSOR beeps and scrolls the message the first time and then once a minute instead of every 5 seconds. **App 2.1** — drops and counts damaged lines with advice in the device card; CHECK SENSOR explained from the pin voltage; USB speed and beep volume under Tools; wiring diagram in the README.
 

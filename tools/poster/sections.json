@@ -146,7 +146,7 @@
     "fn handleCommand",
     "fn calibrateToKnownUv"
    ],
-   "text": "How the wearable and the phone app talk over Bluetooth. The phone sends the online UV index for where you are; the wearable sends back what it is doing every two seconds and reports each event, such as sunscreen applied. The same messages also go down the USB cable, so everything can be tested on a laptop. Every message ends with a checksum, so a message damaged on the way is thrown away instead of being misread."
+   "text": "How the wearable and the phone app talk over Bluetooth. The phone sends the online UV index for where you are; the wearable sends back what it is doing every two seconds and reports each event, such as sunscreen applied. The same messages also go down the USB cable, so everything can be tested on a laptop. Every message ends with a checksum, so a message damaged on the way is thrown away instead of being misread. The app can also switch on show mode, where the wearable performs the whole flowchart by itself."
   },
   {
    "num": 8,
@@ -161,6 +161,7 @@
     "fn reapplyCountdownText",
     "fn cleanText",
     "fn isBlank",
+    "fn showUvNext",
     "fn lineChecksum",
     "fn debugLog"
    ],
@@ -171,6 +172,7 @@
    "title": "The optional screen",
    "blocks": [
     "fn setupOled",
+    "fn oledAnswers",
     "fn oledInitCommands",
     "fn loadFont",
     "fn buildNibbleTable",
@@ -229,12 +231,12 @@
   }
  },
  "plain": {
-  "pxt-on-start": "The first thing that runs when the device is switched on. All the settings are listed here, then the start-up steps: work out the sensor maths, set the timings, get the sound, the screen and Bluetooth ready, and show that the device is on. Holding B while switching on uses the fast demo timings.",
+  "pxt-on-start": "The first thing that runs when the device is switched on. All the settings are listed here, then the start-up steps: work out the sensor maths, set the timings, get the sound, the screen, the USB link and Bluetooth ready, and show that the device is on. Holding B while switching on uses the fast demo timings; holding A starts show mode, where the device performs the whole flowchart by itself.",
   "device_forever": "Runs the flowchart once, then goes straight back to the top and runs it again, all day long.",
   "fn runFlowchart": "The whole flowchart from top to bottom. Read the sensor. If the reading makes sense, pick the UV value, show it, decide the level and react: a happy face, or an alert until A is pressed. Then wait 5 minutes and check whether it is time for more sunscreen. If the reading does not make sense, show CHECK SENSOR instead. Pressing A and B together at any moment turns the device off and stops every wait.",
-  "fn readUvSensor": "Reads the UV sensor plugged into pin P1. It takes 15 quick readings and uses the middle one, so a single odd reading cannot set off a false alarm. Then it turns the sensor's voltage into a UV index number.",
+  "fn readUvSensor": "Reads the UV sensor plugged into pin P1. It takes 15 quick readings and uses the middle one, so a single odd reading cannot set off a false alarm. Then it turns the sensor's voltage into a UV index number. In show mode the reading is replaced by a pretend value that climbs through every band.",
   "fn sensorReadingInRange": "Asks: is this reading believable? The answer is no if the sensor is missing or shorted, if the readings jump about (a loose wire), or if the number could not be real.",
-  "fn showCheckSensor": "When the reading is not believable: shows a cross, and the first time scrolls CHECK SENSOR and beeps twice, then again about once a minute while the fault lasts. It tells the app once, and tries again every 5 seconds. A faulty sensor is never treated as safe.",
+  "fn showCheckSensor": "When the reading is not believable: shows a cross, and the first time scrolls CHECK SENSOR and beeps twice, then again about once a minute while the fault lasts. It tells the app once, and tries again every 5 seconds. While it waits, A shows the pin voltage on the lights and B retries at once. A faulty sensor is never treated as safe.",
   "fn phoneSendingOnlineUv": "Asks: has the phone app sent an online UV index in the last 30 minutes?",
   "fn chooseUvValue": "Picks the UV number the device will act on: the higher of the sensor's reading and the phone's online value, or just the sensor's reading when the phone is not sending.",
   "fn uvBand": "Turns a UV index into one of the four levels on the flowchart: low (0 to 2), moderate or high (3 to 7), very high (8 to 10) or extreme (11 and above).",
@@ -253,10 +255,10 @@
   "on Button.A": "Pressing A means done: sunscreen is on, or I am going inside. It also wakes the device, skips a long message, and during a wait shows the UV number and the countdown.",
   "on Button.B": "Pressing B wakes the device from sleep. Holding B while switching on gives the fast demo timings.",
   "on Button.AB": "Pressing A and B together turns the device off, or on again.",
-  "fn flashAndBeepUntilA": "Flashes all 25 lights and beeps until A is pressed or the app says done. The fast setting is the quicker, higher beep for very high UV. It gives up after 10 minutes so a device left on a table does not beep all day.",
+  "fn flashAndBeepUntilA": "Flashes all 25 lights and beeps until A is pressed or the app says done. The fast setting is the quicker, higher beep for very high UV. It gives up after 10 minutes so a device left on a table does not beep all day. In show mode it presses A itself after 6 seconds.",
   "fn stillWaitingForA": "Asks: should the alert carry on? Yes while A has not been pressed, the device is still on, and the time limit has not been reached.",
-  "fn tapArmUntilA": "Taps the wearer's arm with the motor until A is pressed. After 2 minutes it beeps instead, so a device that is not being worn does not run the motor flat.",
-  "fn standbyUntilButton": "Sleep: waits for any button, or done from the app. Pressing A and B together still turns the device off. Afterwards it goes straight back to reading the sensor.",
+  "fn tapArmUntilA": "Taps the wearer's arm with the motor until A is pressed. After 2 minutes it beeps instead, so a device that is not being worn does not run the motor flat. In show mode it presses A itself after 6 seconds.",
+  "fn standbyUntilButton": "Sleep: waits for any button, or done from the app. Pressing A and B together still turns the device off. Afterwards it goes straight back to reading the sensor. In show mode it wakes by itself after 5 seconds.",
   "fn showUvReading": "Shows the UV number: rounded on the grid of lights, and exact, with the level and where it came from, on the screen.",
   "fn uvBandName": "The words for the screen: LOW, MODERATE, HIGH, VERY HIGH or EXTREME.",
   "fn showLedStatus": "When A is pressed during a wait: the UV number and the time until reapply scroll across the lights, then the usual icon comes back.",
@@ -278,8 +280,8 @@
   "every_interval": "Every 2 seconds, send the app a status line.",
   "fn sendLine": "Sends one message, with its checksum on the end, down the USB cable and to the phone when one is connected.",
   "fn sendEvent": "Tells the app something happened: sunscreen applied, a reminder, went inside, sleep, a sensor problem, on or off.",
-  "fn sendStatus": "Builds the status line the app shows: what the device is doing, the UV values, the level, the seconds until sunscreen is due, how many applications so far, the program version, whether demo timings are on, and the voltage on the sensor pin.",
-  "fn handleCommand": "Reads a command from the app or a laptop and acts on it: a new online UV value, done, calibrate the sensor, demo timings on or off, switch off or on, extra detail on or off, the beep volume, ping, or send the status now.",
+  "fn sendStatus": "Builds the status line the app shows: what the device is doing, the UV values, the level, the seconds until sunscreen is due, how many applications so far, the program version, whether demo timings or show mode are on, and the voltage on the sensor pin.",
+  "fn handleCommand": "Reads a command from the app or a laptop and acts on it: a new online UV value, done, calibrate the sensor, demo timings or show mode on or off, switch off or on, extra detail on or off, the beep volume, look for the screen again, ping, or send the status now.",
   "fn calibrateToKnownUv": "Corrects the sensor's scale. With the sensor in the sun, the app sends today's real UV index and the wearable adjusts its maths so it reads the same.",
   "fn applySensorPreset": "The maths for each type of UV sensor: which voltage means zero, and how many volts make one point of UV index.",
   "fn applyTimings": "Turns the minutes and hours from the settings into the milliseconds the program counts in. Demo timings are much shorter, so the whole flowchart can be shown in a few minutes.",
@@ -291,7 +293,7 @@
   "fn cleanText": "Removes stray spaces and line endings from a command before it is read.",
   "fn isBlank": "Asks: is this character a space or the end of a line?",
   "fn debugLog": "Extra detail lines for a laptop, sent only after the command debug=1.",
-  "fn setupOled": "Looks for a screen on pins 19 and 20 and gets it ready. If there is no screen, everything else works the same.",
+  "fn setupOled": "Looks for a screen at the usual address and then at the other one, and gets it ready. If there is no screen, everything else works the same.",
   "fn oledInitCommands": "The standard list of instructions that wakes up a 128 by 64 dot screen.",
   "fn loadFont": "The shape of every letter, number and symbol, 5 dots wide by 7 tall, stored as text and unpacked when the device starts.",
   "fn buildNibbleTable": "A lookup table for double-size letters: every dot is doubled sideways.",
@@ -304,6 +306,8 @@
   "fn oledWriteRow": "Writes a whole row, filling the rest with spaces so old text is wiped.",
   "fn oledWriteBig": "Writes double-size text, two rows tall and up to 10 characters. It is used for the big UV number.",
   "fn setupUsbLink": "Gets the USB link to a laptop ready: the same messages as Bluetooth go down the cable, without padding spaces, and at the slow speed if the settings ask for it.",
-  "fn lineChecksum": "Adds up the character codes of a message (0 to 255). It goes on the end of every message, so the app can tell when a message was damaged on the way and ignore it."
+  "fn lineChecksum": "Adds up the character codes of a message (0 to 255). It goes on the end of every message, so the app can tell when a message was damaged on the way and ignore it.",
+  "fn showUvNext": "Show mode's pretend UV values: 1, 5, 9 and 12 in turn, one per trip round the flowchart, so the device walks through low, moderate, very high and extreme without any sun.",
+  "fn oledAnswers": "Asks whether a screen is there: after the display-off instruction a real screen answers with a status byte the program recognises; an empty address answers with nothing."
  }
 }
