@@ -38,6 +38,7 @@ try { const t = JSON.parse(localStorage.getItem('sunburn.settings') || '{}').the
       <button class="btn primary" id="btnBle">Connect Bluetooth</button>
       <button class="btn" id="btnSerial">Connect USB</button>
       <button class="btn ghost" id="btnDemo">Try a demo device</button>
+      <button class="btn ghost" id="btnExpo" title="The page runs itself: a tour of every card with the wearable in show mode">Expo mode</button>
       <button class="btn" id="btnReconnect" hidden>Reconnect</button>
       <button class="btn" id="btnDisconnect" hidden>Disconnect</button>
     </div>
@@ -107,6 +108,7 @@ try { const t = JSON.parse(localStorage.getItem('sunburn.settings') || '{}').the
         <button class="btn primary" id="btnAck" disabled>Done (A)</button>
         <button class="btn" id="btnRead" disabled>Check now</button>
         <button class="btn" id="btnDemoTimings" disabled>Demo timings: off</button>
+        <button class="btn" id="btnShow" disabled title="The wearable performs the whole flowchart by itself: pretend UV values, alerts that answer themselves">Show mode</button>
         <button class="btn" id="btnPower" disabled>Turn off</button>
       </div>
       <p class="hint" id="devHint">The device follows the Sunburn Flowchart: read the sensor, pick the higher UV value, alert until A is pressed, wait 5 minutes, remind after 2 hours.</p>
@@ -194,6 +196,7 @@ try { const t = JSON.parse(localStorage.getItem('sunburn.settings') || '{}').the
         <label class="tog"><input type="checkbox" id="awakeTog"> Keep the screen on while connected</label>
         <label class="tog"><input type="checkbox" id="debugTog" disabled> Debug lines from the micro:bit</label>
         <button class="btn small" id="btnPing" disabled>Ping</button>
+        <button class="btn small" id="btnScreen" disabled title="Look for the OLED screen again on both addresses and switch it on">Find the screen</button>
       </div>
       <div class="row" style="margin-top:10px">
         <label class="tog">USB speed
@@ -224,11 +227,13 @@ try { const t = JSON.parse(localStorage.getItem('sunburn.settings') || '{}').the
     <h3>Links</h3>
     <p class="links"><a href="https://github.com/JustAdev742/Trashbin-robot" rel="noopener">Project on GitHub</a><a href="sunburn-device.mkcd" download>Firmware file for MakeCode</a><a href="https://github.com/JustAdev742/Trashbin-robot#readme" rel="noopener">How to load and wire it</a></p>
     <p class="muted" id="appVersion"></p>
+    <p class="hint">For a stand or a big screen: <b>Expo mode</b> in the header tours every card and runs the wearable through the whole flowchart on its own. Open <code>?expo</code> on the end of the address to start it straight away.</p>
     <p><button class="btn small" id="btnShowStart">Show the getting-started steps again</button></p>
   </footer>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="app.js" defer></script>
+<script src="expo.js" defer></script>
 </body>
 </html>
