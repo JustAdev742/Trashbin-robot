@@ -60,6 +60,7 @@ const EDGES = [
   ['fn showReapplySunscreen', 'fn readUvSensor', 'then back to the top', 'loopLeft'],
 ];
 const WALL_KEYS = ROWS.flat().map(r => r[0]);
+const FW = ((/let firmwareVersion = "([^"]+)"/.exec(fs.readFileSync(path.join(ROOT, 'main.ts'), 'utf8')) || [])[1]) || '';
 const LEGEND = [['variables', 'Variables: remember a value'], ['functions', 'Functions: a step with a name'], ['basic', 'Basic: the lights, pauses'], ['input', 'Input: buttons and time'], ['loops', 'Loops: repeat'], ['logic', 'Logic: if, compare'], ['math', 'Maths'], ['text', 'Text'], ['arrays', 'Arrays: lists'], ['music', 'Music: beeps'], ['pins', 'Pins: sensor, motor, screen'], ['bluetooth', 'Bluetooth: the phone'], ['serial', 'Serial: the USB cable'], ['control', 'Control: timing']];
 
 function html(caps, labels, zoom) {
@@ -78,6 +79,8 @@ function html(caps, labels, zoom) {
   const legend = LEGEND.filter(([ns]) => colours[ns]).map(([ns, what]) => `<li><i style="background:${colours[ns]}"></i>${esc(what)}</li>`).join('');
   const glossary = (spec.glossary || []).map(([term, what]) => `<li><b>${esc(term)}</b> ${esc(what)}</li>`).join('');
   const today = new Date().toISOString().slice(0, 10);
+  const N = Object.keys(caps.pictures).length;
+  const story = (spec.story || '').replace('{n}', N);
   return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(spec.title)} wall poster</title><style>
     @page { size: ${W_MM}mm ${H_MM}mm; margin: 0; }
     * { box-sizing: border-box; }
@@ -124,7 +127,7 @@ function html(caps, labels, zoom) {
     <header>
       <div>
         <h1>${esc(spec.title)}: the program on the wrist<small>The Sunburn Flowchart, built from the real blocks of the program, with what each one does</small></h1>
-        <p class="story">${esc(spec.story || '')}</p>
+        <p class="story">${esc(story)}</p>
         <p class="howto">Follow the arrows. Each red label is a box of the flowchart; the coloured picture under it is the actual block of code that does that job, exactly as it looks in the MakeCode editor, and the note says what it does. The forever block runs this plan round and round, all day.</p>
       </div>
       <div class="sun" aria-hidden="true"></div>
@@ -134,13 +137,13 @@ function html(caps, labels, zoom) {
       <aside>
         ${flowchartData ? `<div><h3>The Sunburn Flowchart</h3><img class="pic" src="${flowchartData}" alt="The Sunburn flowchart"><p>The plan the device follows. Every box on it is a block on the left, with the same name.</p></div>` : ''}
         <div><h3>The two buttons</h3><div class="buttons">${buttons}</div><p>Pressing A and B together turns the device off, or on again (see the flowchart).</p></div>
-        <div><h3>The whole program</h3><img class="pic" src="${caps.overview}" alt="The whole program in the editor"><p>All 74 blocks in the editor, in nine sections. The flowchart on this sheet is sections 1 to 4; sections 5 to 9 are the helpers: screen, sound, Bluetooth, maths and the optional screen.</p></div>
+        <div><h3>The whole program</h3><img class="pic" src="${caps.overview}" alt="The whole program in the editor"><p>All ${N} blocks in the editor, in nine sections. The flowchart on this sheet is sections 1 to 4; sections 5 to 9 are the helpers: screen, sound, Bluetooth, maths and the optional screen.</p></div>
         <div><h3>What the block colours mean</h3><ul class="legend">${legend}</ul></div>
         <div><h3>Words used here</h3><ul class="glossary">${glossary}</ul></div>
-        <div class="booklet">Every one of the 74 blocks, with its note, is in the booklet on the table.</div>
+        <div class="booklet">Every one of the ${N} blocks, with its note, is in the booklet on the table.</div>
       </aside>
     </div>
-    <footer><span>${esc(spec.title)} · micro:bit firmware 3.1 · the program follows the Sunburn Flowchart · UV bands follow the WHO UV index · printed ${today}</span><span>${SIZE}</span></footer>
+    <footer><span>${esc(spec.title)} · micro:bit firmware ${FW} · the program follows the Sunburn Flowchart · UV bands follow the WHO UV index · printed ${today}</span><span>${SIZE}</span></footer>
   </div>
   <script>
     // Draws the arrows once everything has its place (called from Node after the page has loaded).

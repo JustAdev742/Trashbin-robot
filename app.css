@@ -213,7 +213,8 @@
   @keyframes pulse { to { transform: scale(1.08); box-shadow: 0 0 0 6px var(--accent-soft); } }
   .hint { font-size: 13px; color: var(--ink-2); margin: 8px 0 0; }
   .hint.warn { color: var(--critical); }
-  label.tog { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; min-height: 32px; }
+  label.tog { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; cursor: pointer; min-height: 32px; max-width: 100%; }
+  label.tog select { min-width: 0; max-width: 100%; }
   input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
   input[type="text"], select {
     border: 1px solid var(--hairline); background: var(--surface); border-radius: var(--radius-s); padding: 8px 12px; min-width: 0; min-height: 40px;

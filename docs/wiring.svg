@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" width="1200" height="900" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
+  <title>Sunburn device wiring on a micro:bit edge connector breakout</title>
+  <rect width="1200" height="900" fill="#fffdf8"/>
+  <text x="40" y="52" font-size="30" font-weight="700" fill="#1c1917">Sunburn device: where each wire goes</text>
+  <text x="40" y="82" font-size="16" fill="#57534e">On an edge connector breakout board. The big pads 0, 1, 2, 3V and GND are the same as the rings on the micro:bit itself,</text>
+  <text x="40" y="104" font-size="16" fill="#57534e">so crocodile clips work for the sensor. Solid wires are needed; dashed wires are optional.</text>
+
+  <!-- the breakout board -->
+  <rect x="120" y="330" width="960" height="110" rx="10" fill="#0f6b3a"/>
+  <text x="600" y="358" font-size="15" fill="#c8f0d6" text-anchor="middle">micro:bit edge connector breakout (pins in the order they are labelled on most boards)</text>
+  <g font-size="15" font-weight="700" text-anchor="middle">
+    <!-- big pads -->
+    <g fill="#f5e8c8">
+      <rect x="150" y="372" width="56" height="50" rx="6" fill="#d9b24c"/><text x="178" y="403" fill="#1c1917">P0</text>
+      <rect x="216" y="372" width="56" height="50" rx="6" fill="#d9b24c"/><text x="244" y="403" fill="#1c1917">P1</text>
+      <rect x="282" y="372" width="56" height="50" rx="6" fill="#d9b24c"/><text x="310" y="403" fill="#1c1917">P2</text>
+      <rect x="348" y="372" width="56" height="50" rx="6" fill="#d9b24c"/><text x="376" y="403" fill="#1c1917">3V</text>
+      <rect x="414" y="372" width="56" height="50" rx="6" fill="#d9b24c"/><text x="442" y="403" fill="#1c1917">GND</text>
+    </g>
+    <!-- small pins -->
+    <g fill="#d9b24c">
+      <circle cx="520" cy="397" r="9"/><circle cx="556" cy="397" r="9"/><circle cx="592" cy="397" r="9"/><circle cx="628" cy="397" r="9"/><circle cx="664" cy="397" r="9"/><circle cx="700" cy="397" r="9"/><circle cx="736" cy="397" r="9"/><circle cx="772" cy="397" r="9"/><circle cx="808" cy="397" r="9"/><circle cx="844" cy="397" r="9"/><circle cx="880" cy="397" r="9"/><circle cx="916" cy="397" r="9"/><circle cx="952" cy="397" r="9"/><circle cx="988" cy="397" r="9"/><circle cx="1024" cy="397" r="9"/><circle cx="1060" cy="397" r="9"/>
+    </g>
+    <g fill="#c8f0d6" font-size="12" font-weight="600">
+      <text x="520" y="428">3</text><text x="556" y="428">4</text><text x="592" y="428">5</text><text x="628" y="428">6</text><text x="664" y="428">7</text><text x="700" y="428">8</text><text x="736" y="428">9</text><text x="772" y="428">10</text><text x="808" y="428">11</text><text x="844" y="428">12</text><text x="880" y="428">13</text><text x="916" y="428">14</text><text x="952" y="428">15</text><text x="988" y="428">16</text><text x="1024" y="428">19</text><text x="1060" y="428">20</text>
+    </g>
+  </g>
+  <text x="1024" y="452" font-size="12" fill="#57534e" text-anchor="middle">SCL</text>
+  <text x="1060" y="452" font-size="12" fill="#57534e" text-anchor="middle">SDA</text>
+
+  <!-- UV sensor (top left) -->
+  <rect x="120" y="130" width="230" height="130" rx="10" fill="#fff" stroke="#e8401c" stroke-width="2"/>
+  <text x="235" y="158" font-size="17" font-weight="700" fill="#1c1917" text-anchor="middle">UV sensor</text>
+  <text x="235" y="178" font-size="12" fill="#57534e" text-anchor="middle">GUVA-S12SD, Crowtail, Grove, ML8511...</text>
+  <g font-size="13" font-weight="600">
+    <text x="150" y="238" fill="#e8401c">OUT</text><text x="215" y="238" fill="#c0392b">VCC</text><text x="285" y="238" fill="#1c1917">GND</text>
+  </g>
+  <path d="M164 244 V300 H244 V372" fill="none" stroke="#e8401c" stroke-width="4"/>
+  <path d="M229 244 V290 H376 V372" fill="none" stroke="#c0392b" stroke-width="4"/>
+  <path d="M298 244 V280 H442 V372" fill="none" stroke="#1c1917" stroke-width="4"/>
+
+  <!-- servo (bottom left) -->
+  <rect x="120" y="560" width="230" height="130" rx="10" fill="#fff" stroke="#2a78d6" stroke-width="2"/>
+  <text x="235" y="660" font-size="17" font-weight="700" fill="#1c1917" text-anchor="middle">Servo (the tapping arm)</text>
+  <text x="235" y="680" font-size="12" fill="#57534e" text-anchor="middle">SG90 or similar. Best powered from the battery pack</text>
+  <g font-size="13" font-weight="600">
+    <text x="132" y="600" fill="#2a78d6">signal</text><text x="240" y="600" fill="#c0392b">+ red</text><text x="300" y="600" fill="#1c1917">- brown</text>
+  </g>
+  <path d="M150 582 V520 H310 V422" fill="none" stroke="#2a78d6" stroke-width="4"/>
+  <path d="M262 582 V500 H384 V422" fill="none" stroke="#c0392b" stroke-width="4" stroke-dasharray="10 6"/>
+  <path d="M322 582 V510 H452 V422" fill="none" stroke="#1c1917" stroke-width="4"/>
+  <text x="500" y="500" font-size="12" fill="#57534e">Servo +: a battery pack (4.8 to 6 V, GND shared with the micro:bit) is safest.</text>
+  <text x="500" y="518" font-size="12" fill="#57534e">A small servo can run from 3V (dashed), but a servo on 3V can restart the micro:bit when it moves.</text>
+
+  <!-- buzzer (optional, top middle) -->
+  <rect x="440" y="130" width="200" height="110" rx="10" fill="#fff" stroke="#8a857d" stroke-width="2" stroke-dasharray="6 4"/>
+  <text x="540" y="158" font-size="17" font-weight="700" fill="#1c1917" text-anchor="middle">Buzzer (optional)</text>
+  <text x="540" y="178" font-size="12" fill="#57534e" text-anchor="middle">only for a V1, or if you set soundOutput = 2</text>
+  <g font-size="13" font-weight="600"><text x="480" y="222" fill="#8a857d">+</text><text x="580" y="222" fill="#1c1917">-</text></g>
+  <path d="M486 228 V270 H186 V372" fill="none" stroke="#8a857d" stroke-width="4" stroke-dasharray="10 6"/>
+  <path d="M584 228 V262 H460 V372" fill="none" stroke="#1c1917" stroke-width="4" stroke-dasharray="10 6"/>
+
+  <!-- OLED (optional, top right) -->
+  <rect x="820" y="130" width="260" height="130" rx="10" fill="#fff" stroke="#8a857d" stroke-width="2" stroke-dasharray="6 4"/>
+  <text x="950" y="158" font-size="17" font-weight="700" fill="#1c1917" text-anchor="middle">OLED screen (optional)</text>
+  <text x="950" y="178" font-size="12" fill="#57534e" text-anchor="middle">128 x 64, I2C, SSD1306 or SH1106</text>
+  <g font-size="13" font-weight="600">
+    <text x="840" y="238" fill="#c0392b">VCC</text><text x="900" y="238" fill="#1c1917">GND</text><text x="960" y="238" fill="#1a9c6e">SCL</text><text x="1030" y="238" fill="#2a78d6">SDA</text>
+  </g>
+  <path d="M968 244 V300 H1024 V388" fill="none" stroke="#1a9c6e" stroke-width="4" stroke-dasharray="10 6"/>
+  <path d="M1042 244 V310 H1060 V388" fill="none" stroke="#2a78d6" stroke-width="4" stroke-dasharray="10 6"/>
+  <path d="M852 244 V296 H700 V286 H396 V372" fill="none" stroke="#c0392b" stroke-width="4" stroke-dasharray="10 6"/>
+  <path d="M912 244 V304 H720 V276 H466 V372" fill="none" stroke="#1c1917" stroke-width="4" stroke-dasharray="10 6"/>
+
+  <!-- legend -->
+  <g font-size="14" fill="#1c1917">
+    <text x="600" y="590" font-weight="700">Wire by wire</text>
+    <text x="600" y="616">UV sensor: OUT to P1, VCC to 3V, GND to GND.</text>
+    <text x="600" y="640">Servo: signal (orange or yellow) to P2, brown to GND, red to the battery pack +.</text>
+    <text x="600" y="664">OLED, if you have one: SDA to pin 20, SCL to pin 19, VCC to 3V, GND to GND.</text>
+    <text x="600" y="688">Buzzer, only if soundOutput = 2: + to P0, - to GND. A V2 has its own speaker.</text>
+    <text x="600" y="720" fill="#57534e" font-size="13">Every GND is the same GND; every 3V is the same 3V.</text>
+    <text x="600" y="742" fill="#57534e" font-size="13">In the program: readUvSensor P1, servoAngle P2, setupSound P0, oledCommand 19 and 20.</text>
+  </g>
+  <g font-size="13" fill="#57534e">
+    <text x="40" y="800">If the device shows a cross and CHECK SENSOR, the wire on P1 is the one to look at: the app says what voltage the pin sees.</text>
+    <text x="40" y="822">The two buttons and the lights are on the micro:bit itself. The phone connects over Bluetooth; a laptop can use the USB cable.</text>
+  </g>
+</svg>

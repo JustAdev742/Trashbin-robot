@@ -1,4 +1,4 @@
-# Sunburn device — micro:bit firmware 3.1
+# Sunburn device — micro:bit firmware 3.2
 
 A UV wearable for the BBC micro:bit that follows the **Sunburn Flowchart**: it reads a UV sensor, combines it with the online UV index sent by a phone over Bluetooth, and then flashes, beeps or taps your arm until you put sunscreen on. Two hours later it reminds you to reapply. A companion web app at **https://justadev742.github.io/Trashbin-robot/** supplies the live UV index for your location over Bluetooth and shows the device's status and history (section 6).
 
@@ -43,7 +43,7 @@ Two things, both generated from the project and written for anyone (parents and 
 
 ![The wall poster](docs/poster/wall-poster.png)
 
-**The full poster** (`docs/poster/sunburn-code-poster-A3.pdf`, 19 sheets), every one of the 74 blocks with its note, sheet 1 being an overview with the flowchart, the colour key, the glossary and an index. Bind it as a booklet for the table; visitors who want to see every helper block leaf through it. The same set exists as 6 A1 sheets (`-A1.pdf`) or 5 A0 sheets (`-A0.pdf`) if there is a wall for it.
+**The full poster** (`docs/poster/sunburn-code-poster-A3.pdf`, 19 sheets), every one of the 76 blocks with its note, sheet 1 being an overview with the flowchart, the colour key, the glossary and an index. Bind it as a booklet for the table; visitors who want to see every helper block leaf through it. The same set exists as 6 A1 sheets (`-A1.pdf`) or 5 A0 sheets (`-A0.pdf`) if there is a wall for it.
 
 | File | Sheets | Size on the wall |
 |---|---|---|
@@ -71,16 +71,27 @@ The scripts open the real MakeCode editor in a headless browser, import `sunburn
 
 ## 2. Wiring
 
-Each pin is used in exactly one function, so it is easy to change:
+![Where each wire goes on an edge connector breakout](docs/wiring.png)
 
-| Part | Pin | Where in the code |
-|---|---|---|
-| UV sensor, analog OUT | **P1** | `readUvSensor` (3V and GND to the sensor) |
-| Servo signal | **P2** | `servoAngle` (power the servo from 3V or its own battery, GND shared) |
-| Buzzer (only if you add one) | P0 | `setupSound`, and set `soundOutput` to 2 |
-| OLED SDA / SCL (optional) | P20 / P19 | the I2C pins; `oledCommand` |
+On an edge connector breakout board the pins are labelled the same as on the micro:bit. Each pin is used in exactly one function, so it is easy to change:
 
-Crowtail, ElecFreaks, Kitronik and similar boards route the same pins to plugs: use the plug labelled P1 for the sensor, P2 for the servo and the I2C plug for a screen.
+| Part | Wire | Breakout pin | Where in the code |
+|---|---|---|---|
+| UV sensor | OUT (signal) | **P1** | `readUvSensor` |
+| | VCC | **3V** | |
+| | GND | **GND** | |
+| Servo (the tapping arm) | signal, usually orange or yellow | **P2** | `servoAngle` |
+| | brown or black | **GND** | |
+| | red | battery pack **+** (4.8 to 6 V), GND shared with the micro:bit; a small servo can run from **3V**, but a servo on 3V can restart the micro:bit when it moves | |
+| Buzzer, only if `soundOutput` is 2 | + | P0 | `setupSound` |
+| | − | GND | |
+| OLED screen (optional) | SDA | pin **20** | `oledCommand` |
+| | SCL | pin **19** | |
+| | VCC / GND | 3V / GND | |
+
+The big pads P0, P1, P2, 3V and GND are the same as the rings on the micro:bit itself, so crocodile clips work for the sensor. Crowtail, ElecFreaks, Kitronik and similar shields route the same pins to plugs: use the plug labelled P1 for the sensor, P2 for the servo and the I2C plug for a screen. Every GND is the same GND.
+
+**If the device shows a cross and CHECK SENSOR**, the reading on P1 makes no sense: the app's "On the wrist" card says what voltage the pin sees and which wire to look at. A steady 1 to 3 V indoors means the sensor's OUT wire is not on P1, or an ML8511 board is set as type 1. Readings that jump about mean a loose wire or an unpowered sensor. The device beeps and scrolls the message the first time and then about once a minute while the fault lasts, and retries every 5 seconds.
 
 ## 3. Settings (section 1, the `on start` block)
 
@@ -89,12 +100,14 @@ Crowtail, ElecFreaks, Kitronik and similar boards route the same pins to plugs: 
 | `uvSensorType` | 1 = GUVA-S12SD / Crowtail / Grove / DFRobot / ElecFreaks, 2 = ML8511, 3 = sensors sold as "0–1023 = UV 0–15" |
 | `uvSampleCount` | samples per reading (the middle value is used, so noise spikes are ignored) |
 | `soundOutput` | 1 = micro:bit V2 speaker, 2 = buzzer on P0 |
+| `soundVolume` | 0 to 255; how loud the beeps are (180 out of the box) |
 | `servoType`, `servoRestAngle`, `servoTapAngle` | 1 = positional servo (uses the two angles), 2 = continuous rotation |
 | `oledMode`, `oledType`, `oledAddress` | 0 = no screen, 1 = detect at start-up, 2 = always on; 1 = SSD1306, 2 = SH1106; 60 = 0x3C |
 | `uvLowMax`, `uvHighMax`, `uvVeryHighMax` | the flowchart bands 0–2, 3–7, 8–10, 11+ (tested on the rounded UV index) |
 | `waitMinutes`, `reapplyHours`, `tapMaxMinutes` | the flowchart timings: 5 minutes, 2 hours, 2 minutes |
 | `alertGiveUpMinutes` | how long a flash-and-beep alert carries on with no answer before the device assumes it is not being worn and goes to standby |
 | `onlineUvMaxAgeMinutes` | how long a value from the phone counts as "the phone is sending online UV" |
+| `usbSpeed` | 1 = 115200 (normal), 2 = 9600: use 2 if the app says lines arrive damaged over USB, and choose 9600 in the app's Tools too |
 
 Cheap UV sensors are only roughly calibrated. Once it is wired up, look up today's UV index on a weather site, hold the sensor in the sun and send `cal=<that number>` (see section 5 of this file); the scale corrects itself. Send `zero` in the dark first if the reading is not 0 indoors. Do this on the batteries you will actually wear: on 2×AAA the micro:bit's analog reference is about 3.0 V instead of the 3.3 V it has on USB, which shifts every reading by roughly 10%. Calibration lives in RAM, so put the corrected numbers into `applySensorPreset` to make them permanent. The app's **Calibrate sensor to live UV** button does the `cal=` step for you.
 
@@ -133,7 +146,7 @@ The micro:bit exposes the standard **Nordic UART service** (`6E400001-B5A3-F393-
 **Device → app**, every 2 seconds:
 
 ```
-st=wait;uv=7.3;sen=7.1;onl=6.5;band=vhigh;spf=5400;spfn=3;fw=3.1;demo=0
+st=wait;uv=7.3;sen=7.1;onl=6.5;band=vhigh;spf=5400;spfn=3;fw=3.2;demo=0;pv=0.7;ck=183
 ```
 
 | Field | Meaning |
@@ -145,6 +158,8 @@ st=wait;uv=7.3;sen=7.1;onl=6.5;band=vhigh;spf=5400;spfn=3;fw=3.1;demo=0
 | `spf` | seconds until sunscreen reapply is due (`-1` = no timer running) |
 | `spfn` | sunscreen applications acknowledged since power-on |
 | `fw` / `demo` | firmware version, and `1` while demo timings are on |
+| `pv` | the voltage on the sensor pin P1, so a wiring problem can be seen from the app |
+| `ck` | on the end of every line the device sends: the character codes of the line before `;ck=` added up, modulo 256. The app drops a line whose checksum does not match, so a byte lost over USB cannot turn into a wrong number |
 
 **Device → app**, on events: `ev=on` `ev=off` `ev=sunscreen` `ev=reapply` `ev=inside` `ev=standby` `ev=error;msg=CHECK SENSOR` (once per sensor problem, not once per retry). Logging these with a timestamp is all a website needs for daily and monthly statistics.
 
@@ -158,7 +173,8 @@ st=wait;uv=7.3;sen=7.1;onl=6.5;band=vhigh;spf=5400;spfn=3;fw=3.1;demo=0
 | `demo=1` / `demo=0` | Demo timings on / off |
 | `power=0` / `power=1` | Turn off / on |
 | `debug=1` / `debug=0` | Extra `dbg:` lines on the serial console (raw sensor values, commands) |
-| `ping` | Replies `pong;fw=3.1;oled=1` |
+| `vol=180` | Beep volume 0 to 255 until the device restarts (the lasting setting is `soundVolume`) |
+| `ping` | Replies `pong;fw=3.2;oled=1` |
 | `read` | Send a status line immediately |
 
 ## 6. The companion app
@@ -172,7 +188,8 @@ The micro:bit has no internet, so the app does the online half of the flowchart.
 - **Measured today.** The wearable's UV readings through the day (one a minute while it is connected and measuring) on the same chart as the forecast curve for your location, so you can see how the two compare.
 - **History.** Sunscreen applications per day over 7, 14 or 30 days as a chart and a table, today's time in the sun by UV band, reminders, going inside, a timestamped event log, CSV export, a sunscreen guide, and optional notifications.
 - **Appearance.** Follows the phone's light or dark setting, or pick one; every chart has a plain-text twin for screen readers and small screens.
-- **Tools.** Zero the sensor in the dark, calibrate it to the live UV index in one click, ping, debug lines, and a raw console for any command.
+- **Tools.** Zero the sensor in the dark, calibrate it to the live UV index in one click, beep volume, USB speed, ping, debug lines, and a raw console for any command.
+- **When something is wrong it says so in plain words.** CHECK SENSOR comes with the voltage the pin sees and which wire to look at. Lines from the device that fail their checksum are dropped and counted, and the card says how many arrived damaged and what to try (another cable or port, or the slow USB speed).
 - **Try a demo device** runs a pretend micro:bit that speaks the same protocol, so the app can be shown without hardware. Its events are marked *demo* and are never kept in the history.
 - **Install it.** On Android (Chrome) or a desktop browser, "Add to Home screen" or "Install" turns the page into an app of its own; it opens without a network connection too, so the Bluetooth side keeps working offline. There is also a "keep the screen on while connected" option, since a phone that sleeps stops sending UV updates.
 
@@ -190,6 +207,7 @@ Leave P1 unconnected: the reading is noisy, so you will see the **CHECK SENSOR**
 | `pxt.json`, `main.ts`, `main.blocks` | The same project as a MakeCode GitHub project: settings, the program as JavaScript in section order, and the Blocks layout |
 | `docs/sunburn-flowchart.pdf`, `docs/sunburn-flowchart.png` | The flowchart the program follows |
 | `docs/blocks-overview.png` | The Blocks view zoomed out |
+| `docs/wiring.svg`, `docs/wiring.png` | Where each wire goes on an edge connector breakout |
 | `index.html`, `app.css`, `app.js`, `.nojekyll` | The companion web app (no build step), served as the site root; `.nojekyll` makes Pages publish the files as they are |
 | `docs/poster/sunburn-wall-poster-A1.pdf`, `-A0.pdf`, `-A1-tiles-A3.pdf`, `-A0-tiles-A3.pdf`, `docs/poster/wall-poster.png` | The wall poster: the flowchart built from the real blocks, one sheet, and the same cut into A3 tiles |
 | `docs/poster/sunburn-code-poster-A3.pdf`, `-A1.pdf`, `-A0.pdf`, `docs/poster/sheet-1-overview.png`, `docs/poster/workspace-overview.png` | The full poster in three sizes: every block with a plain-English note, sheet 1 as a picture, and the bare workspace |
@@ -198,6 +216,8 @@ Leave P1 unconnected: the reading is noisy, so you will see the **CHECK SENSOR**
 | `.github/workflows/pages.yml` | Publishes the repository to GitHub Pages (works whether the Pages source is a branch or GitHub Actions) |
 
 ## 9. What changed
+
+**3.2** — every line the device sends ends with a checksum (`ck=`), and the status line carries the sensor pin voltage (`pv=`); no padding spaces after lines; a `usbSpeed` setting for a slow, reliable 9600 USB link; a `soundVolume` setting and a `vol=` command; CHECK SENSOR beeps and scrolls the message the first time and then once a minute instead of every 5 seconds. **App 2.1** — drops and counts damaged lines with advice in the device card; CHECK SENSOR explained from the pin voltage; USB speed and beep volume under Tools; wiring diagram in the README.
 
 **Wall poster** — one sheet for an expo wall: the flowchart built from the real blocks with plain-English notes, as A1, A0, or A3 tiles for an A3 printer.
 

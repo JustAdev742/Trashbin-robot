@@ -1,5 +1,5 @@
 // =====================================================================
-//  SUNBURN DEVICE  -  micro:bit firmware 3.1
+//  SUNBURN DEVICE  -  micro:bit firmware 3.2
 // =====================================================================
 //  A UV wearable that follows the "Sunburn Flowchart":
 //  read the UV sensor, combine it with the online UV index from a phone,
@@ -29,6 +29,8 @@ let uvSampleCount = 15
 
 // Sound: 1 = micro:bit V2 speaker, 2 = buzzer on P0 (a V1 always uses P0)
 let soundOutput = 1
+// How loud the beeps are, 0-255 (the app can change it for one session with vol=)
+let soundVolume = 180
 
 // Servo on P2: 1 = normal positional servo, 2 = continuous rotation servo
 let servoType = 1
@@ -58,7 +60,10 @@ let tapMaxMinutes = 2
 let alertGiveUpMinutes = 10
 let onlineUvMaxAgeMinutes = 30
 let sensorRetrySeconds = 5
-let firmwareVersion = "3.1"
+// USB link speed: 1 = normal (115200), 2 = slow (9600). Use 2 if the app says lines
+// arrive damaged, and choose 9600 in the app's Tools as well
+let usbSpeed = 1
+let firmwareVersion = "3.2"
 
 // ----- State variables: the program updates these itself -----
 // (variables that start at 0, false or empty do not show in Blocks)
@@ -83,6 +88,7 @@ let btConnected = false
 let oledPresent = false
 let debugMode = false
 let sensorErrorReported = false
+let sensorErrorCount = 0
 let skipMessage = false
 let wentToStandby = false
 let uvZeroVolts = 0
@@ -99,6 +105,7 @@ applySensorPreset()
 applyTimings()
 setupSound()
 setupOled()
+setupUsbLink()
 advertiseOverBluetooth()
 // Hold B while switching on for demo timings: 10 s waits and a 1 minute sunscreen timer
 if (input.buttonIsPressed(Button.B)) {
@@ -188,19 +195,26 @@ function sensorReadingInRange(): boolean {
     return inRange
 }
 
-// Box: Show CHECK SENSOR, beep, retry in 5 s.  A bad sensor is never treated as
-// "safe". The app gets one ev=error per problem, not one per retry.
+// Box: Show CHECK SENSOR, beep, retry in 5 s. The first time: a cross, the message
+// across the LEDs and two beeps. While the fault lasts: the cross only, with the
+// message and beeps again about once a minute, so a device on a bench does not
+// beep all day. A bad sensor is never treated as "safe". The app gets one ev=error
+// per problem, not one per retry, and the status line carries the pin voltage.
 function showCheckSensor() {
     stateName = "error"
     if (!sensorErrorReported) {
         sendLine("ev=error;msg=CHECK SENSOR")
         sensorErrorReported = true
+        sensorErrorCount = 0
     }
     basic.showIcon(IconNames.No)
-    showMessage("CHECK SENSOR")
+    if (sensorErrorCount % 12 == 0) {
+        showMessage("CHECK SENSOR")
+        beep(440, 200)
+        beep(440, 200)
+    }
     oledFooter("pin " + formatNumber(sensorVolts) + " V")
-    beep(440, 200)
-    beep(440, 200)
+    sensorErrorCount += 1
     basic.pause(sensorRetrySeconds * 1000)
 }
 
@@ -593,7 +607,7 @@ function setupSound() {
     if (soundOutput == 2) {
         pins.analogSetPitchPin(AnalogPin.P0)
     }
-    music.setVolume(255)
+    music.setVolume(soundVolume)
 }
 
 // One beep: frequency in Hz (523 = C5, 659 = E5, 440 = A4), length in ms
@@ -639,14 +653,23 @@ function servoTapOnce() {
 
 // ===== 7. BLUETOOTH AND SERIAL =====
 //
-//  Device -> app every 2 s:  st=wait;uv=7.3;sen=7.1;onl=6.5;band=vhigh;spf=5400;spfn=3;fw=3.0
+//  Device -> app every 2 s:  st=wait;uv=7.3;sen=7.1;onl=6.5;band=vhigh;spf=5400;spfn=3;fw=3.2;demo=0;pv=0.7;ck=183
 //  Device -> app on events:  ev=on  off  sunscreen  reapply  inside  standby  error
-//  App -> device commands:   uv=6.5  ack  zero  cal=7.0  demo=1  power=0  debug=1  ping  read
+//  App -> device commands:   uv=6.5  ack  zero  cal=7.0  demo=1  power=0  debug=1  vol=180  ping  read
+//  Every line out ends with ;ck=N, the character codes added up modulo 256, so the app can drop a damaged line
 
-// Box: Advertise over Bluetooth so a phone can connect (UART service). The same
-// lines also go over USB serial, so a laptop can test everything without a phone.
-function advertiseOverBluetooth() {
+// The USB link to a laptop: the same lines as Bluetooth. No padding spaces after
+// each line, and the slow speed if the settings ask for it.
+function setupUsbLink() {
     serial.redirectToUSB()
+    serial.setWriteLinePadding(0)
+    if (usbSpeed == 2) {
+        serial.setBaudRate(BaudRate.BaudRate9600)
+    }
+}
+
+// Box: Advertise over Bluetooth so a phone can connect (UART service)
+function advertiseOverBluetooth() {
     bluetooth.startUartService()
 }
 
@@ -678,11 +701,12 @@ loops.everyInterval(2000, function () {
     sendStatus()
 })
 
-// One line of text to USB serial, and to the phone when one is connected
+// One line of text to USB serial, and to the phone when one is connected, with its checksum on the end
 function sendLine(text: string) {
-    serial.writeLine(text)
+    let line = text + ";ck=" + lineChecksum(text)
+    serial.writeLine(line)
     if (btConnected) {
-        bluetooth.uartWriteLine(text)
+        bluetooth.uartWriteLine(line)
     }
 }
 
@@ -692,7 +716,7 @@ function sendEvent(name: string) {
 }
 
 // The status line: state, UV values, band, seconds until reapply, sunscreen
-// count, firmware version, and whether demo timings are on
+// count, firmware version, whether demo timings are on, and the voltage on the sensor pin
 function sendStatus() {
     let reapplySeconds = -1
     if (reapplyTimerRunning) {
@@ -716,6 +740,7 @@ function sendStatus() {
     } else {
         status = status + ";demo=0"
     }
+    status = status + ";pv=" + formatNumber(sensorVolts)
     sendLine(status)
 }
 
@@ -760,6 +785,10 @@ function handleCommand(command: string) {
     } else if (key == "debug") {
         debugMode = value == "1"
         sendLine("ok=debug")
+    } else if (key == "vol") {
+        soundVolume = parseFloat(value)
+        music.setVolume(soundVolume)
+        sendLine("ok=vol")
     } else if (key == "ping") {
         let oledText = "0"
         if (oledPresent) {
@@ -893,6 +922,17 @@ function cleanText(text: string): string {
 // Character codes 32 = space, 13 = return, 10 = new line
 function isBlank(code: number): boolean {
     return code == 32 || code == 13 || code == 10
+}
+
+// The checksum on the end of every line: the character codes added up, 0-255.
+// The app drops a line whose sum does not match, so a byte lost on the way
+// (it happens over USB) cannot turn into a wrong number.
+function lineChecksum(text: string): number {
+    let sum = 0
+    for (let index = 0; index <= text.length - 1; index++) {
+        sum = (sum + text.charCodeAt(index)) % 256
+    }
+    return sum
 }
 
 // Extra "dbg:" lines on the serial console after the command debug=1
