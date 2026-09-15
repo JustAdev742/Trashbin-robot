@@ -231,6 +231,7 @@ function composeHtml(caps, labels) {
   const legend = LEGEND.filter(([ns]) => colours[ns]).map(([ns, what]) => `<li><i style="background:${colours[ns]}"></i>${esc(what)}</li>`).join('');
   const glossary = (spec.glossary || []).map(([term, what]) => `<li><b>${esc(term)}</b> ${esc(what)}</li>`).join('');
   const today = new Date().toISOString().slice(0, 10);
+  const story = (spec.story || '').replace('{n}', Object.keys(caps.pictures).length);
   const coverZoom = SHEET_H / 420;   // the cover is laid out as an A3 landscape sheet and scaled up to the chosen size
   return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(spec.title)} poster</title><style>
     @page { size: ${SHEET_W}mm ${SHEET_H}mm; margin: 0; }
@@ -288,7 +289,7 @@ function composeHtml(caps, labels) {
       <p class="sub">${esc(spec.subtitle)} · printed ${today}</p>
     </div>
     <div>
-      <p class="story">${esc(spec.story || '')}</p>
+      <p class="story">${esc(story)}</p>
       <p class="howto">${esc(spec.howto || '')}</p>
     </div>
     <div class="ovwrap"><img class="ov" src="${caps.overview}" alt="The whole Blocks workspace"></div>

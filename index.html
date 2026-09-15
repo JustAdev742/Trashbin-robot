@@ -100,6 +100,7 @@ try { const t = JSON.parse(localStorage.getItem('sunburn.settings') || '{}').the
         <div class="icon" aria-hidden="true"></div>
         <div><div class="t" id="devStateT">Not connected</div><div class="d" id="devStateD">Connect the micro:bit to see what it is doing.</div></div>
       </div>
+      <p class="hint warn" id="linkHint" hidden></p>
       <div class="stats" id="devStats"></div>
       <div class="meter" id="spfMeter" hidden role="progressbar" aria-label="Sunscreen protection left" aria-valuemin="0" aria-valuemax="100"><div class="fill" id="spfFill"></div></div>
       <div class="row">
@@ -194,6 +195,15 @@ try { const t = JSON.parse(localStorage.getItem('sunburn.settings') || '{}').the
         <label class="tog"><input type="checkbox" id="debugTog" disabled> Debug lines from the micro:bit</label>
         <button class="btn small" id="btnPing" disabled>Ping</button>
       </div>
+      <div class="row" style="margin-top:10px">
+        <label class="tog">USB speed
+          <select id="usbBaud" aria-label="USB speed"><option value="115200">115200 (normal)</option><option value="9600">9600 (slow)</option></select>
+        </label>
+        <label class="tog">Beep volume
+          <select id="volume" aria-label="Beep volume" disabled><option value="80">quiet</option><option value="180" selected>normal</option><option value="255">loud</option></select>
+        </label>
+      </div>
+      <p class="hint">The USB speed must match the wearable's <code>usbSpeed</code> setting (1 = 115200, 2 = 9600). The volume goes to the wearable as <code>vol=</code> and lasts until it restarts; the lasting setting is <code>soundVolume</code>.</p>
       <details class="adv" style="margin-top:10px">
         <summary>Console</summary>
         <div class="row" style="margin-top:6px">

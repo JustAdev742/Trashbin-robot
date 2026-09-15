@@ -2,7 +2,7 @@
 // connection (the Bluetooth side works offline). Same-origin requests are network-first, so updates
 // arrive as soon as the site is reachable; the copy is only used when the network fails.
 // Requests to other origins (the UV service, geocoding) are never intercepted.
-const CACHE = 'sunburn-app-v2';
+const CACHE = 'sunburn-app-v3';
 const SHELL = ['./', './index.html', './app.css', './app.js', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', event => {

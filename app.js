@@ -5,7 +5,7 @@
    state & storage · rendering · charts · wiring up
    =================================================================== */
 
-const APP_VERSION = '2.0';
+const APP_VERSION = '2.1';
 const TIMER_MS = 2 * 3600000;   // the reapply timer of the flowchart
 
 // ---------- protocol ----------
@@ -116,7 +116,7 @@ class SerialLink {
   constructor() { this.kind = 'USB'; this.name = 'micro:bit (USB)'; this.onLine = () => {}; this.onClose = () => {}; }
   async connect() {
     const port = await navigator.serial.requestPort({ filters: [{ usbVendorId: 0x0d28 }] });
-    await port.open({ baudRate: 115200 });
+    await port.open({ baudRate: state.settings.usbBaud === 9600 ? 9600 : 115200 });   // the wearable's usbSpeed setting must match
     this.port = port;
     port.addEventListener('disconnect', () => this.onClose());
     const lines = new LineBuffer(l => this.onLine(l));
@@ -149,9 +149,9 @@ class DemoLink {
     this.timers = [];
   }
   later(ms, fn) { this.timers.push(setTimeout(fn, ms)); }
-  emit(line) { this.later(0, () => this.onLine(line)); }
+  emit(line) { this.later(0, () => this.onLine(withChecksum(line))); }   // the real firmware adds a checksum to every line
   async connect() {
-    this.emit('hello;fw=3.1');
+    this.emit('hello;fw=3.2');
     this.statusTimer = setInterval(() => this.emit(this.statusLine()), 2000);
     this.later(1500, () => this.cycle());
   }
@@ -161,7 +161,7 @@ class DemoLink {
     const d = this.d; const uv = this.uvNow();
     const fresh = d.onlineAt && Date.now() - d.onlineAt < 30 * 60000;
     const spf = d.timer ? Math.max(0, Math.floor((d.timer - Date.now()) / 1000)) : -1;
-    return `st=${d.st};uv=${uv.toFixed(1)};sen=${d.sensor.toFixed(1)};onl=${fresh ? d.online.toFixed(1) : '-1'};band=${this.bandOf(uv)};spf=${spf};spfn=${d.spfn};fw=3.1;demo=${d.demo ? 1 : 0}`;
+    return `st=${d.st};uv=${uv.toFixed(1)};sen=${d.sensor.toFixed(1)};onl=${fresh ? d.online.toFixed(1) : '-1'};band=${this.bandOf(uv)};spf=${spf};spfn=${d.spfn};fw=3.2;demo=${d.demo ? 1 : 0};pv=${(d.sensor * 0.1).toFixed(1)}`;
   }
   // the flowchart, sped up: a "5 minute" wait is 10 s, the reapply timer 60 s, alerts give up after 20 s
   cycle() {
@@ -239,7 +239,8 @@ const state = {
   appTimer: store.load('sunburn.appTimer', null), // this page's own sunscreen timer { startedAt, due, notified }
   lastBle: null,                                  // the last Bluetooth link, kept so it can be reopened without the chooser
   online: store.load('sunburn.online', null),   // { uv, at, lat, lon, place, tz, peak, peakAt, hourly:[{t, uv}] }
-  settings: Object.assign({ autoSend: true, intervalMin: 10, location: null, notify: false, keepAwake: false, rangeDays: 14, theme: 'system', gotStarted: false }, store.load('sunburn.settings', {})),
+  settings: Object.assign({ autoSend: true, intervalMin: 10, location: null, notify: false, keepAwake: false, rangeDays: 14, theme: 'system', gotStarted: false, usbBaud: 115200 }, store.load('sunburn.settings', {})),
+  linesTotal: 0, damaged: 0,                       // lines from the device on this connection, and how many failed their checksum
   events: store.load('sunburn.events', []),      // [{ t, ev, msg }]
   lastSentAt: store.load('sunburn.lastSent', 0),
   consoleLines: [],
@@ -337,6 +338,7 @@ async function connectWith(link) {
   }
   state.link = link; state.linkStatus = 'on'; state.device.status = null; state.device.fw = ''; state.lastBle = null;
   if (!state.settings.gotStarted) { state.settings.gotStarted = true; saveSettings(); }
+  state.linesTotal = 0; state.damaged = 0;
   pushConsole(`-- connected via ${link.kind} (${link.name}), app ${APP_VERSION}`);
   updateWakeLock(); render();
   setTimeout(() => { if (state.link === link && !state.device.fw) send('ping'); }, 2500);
@@ -363,7 +365,20 @@ async function reconnectLast() {
   pushConsole(`-- reconnected via Bluetooth (${link.name})`); updateWakeLock(); render(); send('ping');
   $('btnReconnect').disabled = false;
 }
-function handleLine(line) {
+// Firmware 3.2 ends every line with ;ck=N, the character codes added up modulo 256. A line whose sum does not
+// match lost or changed a byte on the way (it happens over USB) and is dropped rather than read as a wrong number.
+function checksumOk(line) {
+  const i = line.lastIndexOf(';ck=');
+  if (i < 0) return true;   // older firmware: no checksum to check
+  let sum = 0; for (let k = 0; k < i; k++) sum = (sum + line.charCodeAt(k)) % 256;
+  return sum === parseInt(line.slice(i + 4), 10);
+}
+function stripChecksum(line) { const i = line.lastIndexOf(';ck='); return i < 0 ? line : line.slice(0, i); }
+function withChecksum(line) { let sum = 0; for (let k = 0; k < line.length; k++) sum = (sum + line.charCodeAt(k)) % 256; return `${line};ck=${sum}`; }
+function handleLine(raw) {
+  state.linesTotal++;
+  if (!checksumOk(raw)) { state.damaged++; pushConsole('damaged  ' + raw); renderLinkHealth(); return; }
+  const line = stripChecksum(raw);
   pushConsole('< ' + line);
   if (line.startsWith('st=')) {
     const status = parseKv(line);
@@ -596,7 +611,7 @@ function renderLink() {
   $('btnDisconnect').hidden = !link;
   $('btnReconnect').hidden = !!link || !state.lastBle; if (state.lastBle) $('btnReconnect').textContent = `Reconnect to ${state.lastBle.name}`;
   $('btnBle').hidden = !!link; $('btnSerial').hidden = !!link; $('btnDemo').hidden = !!link;
-  for (const id of ['btnAck', 'btnRead', 'btnDemoTimings', 'btnPower', 'btnZero', 'btnPing', 'btnCmd', 'cmdInput', 'debugTog']) $(id).disabled = !link;
+  for (const id of ['btnAck', 'btnRead', 'btnDemoTimings', 'btnPower', 'btnZero', 'btnPing', 'btnCmd', 'cmdInput', 'debugTog', 'volume']) $(id).disabled = !link;
   $('btnCal').disabled = !link || !onlineIsFresh();
 }
 function renderUv() {
@@ -660,7 +675,8 @@ function renderDevice() {
     stats.replaceChildren(); return;
   }
   const step = STEPS[s.st] || [s.st, '', 'clock', ''];
-  showState(step[0], step[1], step[2], step[3]);
+  showState(step[0], s.st === 'error' ? sensorAdvice(s) : step[1], step[2], step[3]);
+  renderLinkHealth();
   const uv = parseFloat(s.uv), sen = parseFloat(s.sen), onl = parseFloat(s.onl), spf = parseInt(s.spf, 10);
   const b = isFinite(uv) ? bandFor(uv) : null;
   const tile = (l, v, sub) => el('div', { class: 'stat' }, el('div', { class: 'l' }, l), el('div', { class: 'v' }, v, sub ? el('small', {}, ' ' + sub) : null));
@@ -678,6 +694,25 @@ function renderDevice() {
     const total = s.demo === '1' ? 60 : 7200;
     setMeter($('spfMeter'), $('spfFill'), 100 * spf / total, `${fmtCountdown(spf)} until sunscreen is due`);
   }
+}
+// CHECK SENSOR in plain words: what the voltage on P1 means and which wire to look at
+function sensorAdvice(s) {
+  const pv = parseFloat(s.pv), sen = parseFloat(s.sen);
+  if (!isFinite(pv)) return `The sensor reading is out of range (it says UV ${isFinite(sen) ? sen.toFixed(1) : '?'}). Check that the sensor's OUT wire is on P1, VCC on 3V and GND on GND. It retries every 5 seconds.`;
+  if (pv >= 3.1) return `Pin P1 sits at ${pv.toFixed(1)} V, the top of its range. The sensor's OUT wire is probably on 3V, or nothing is plugged into P1. Move the OUT wire to P1. It retries every 5 seconds.`;
+  if (pv > 0.4) return `Pin P1 reads a steady ${pv.toFixed(1)} V, which would be UV ${isFinite(sen) ? sen.toFixed(1) : '?'}: impossible indoors. Check that the sensor's OUT wire is on P1 (not P0 or P2), VCC on 3V and GND on GND. An ML8511 board idles at 1 V and needs uvSensorType 2 in the settings. It retries every 5 seconds.`;
+  return `Pin P1 reads ${pv.toFixed(1)} V but the readings jump about: a loose wire, or the sensor is not powered. Check the three wires. It retries every 5 seconds.`;
+}
+// How the link is doing: lines that failed their checksum were dropped, and a lot of them means the USB cable, port or speed
+function renderLinkHealth() {
+  const el = $('linkHint'); if (!el) return;
+  const bad = state.damaged, total = state.linesTotal;
+  if (!state.link || !bad) { el.hidden = true; return; }
+  const pct = total ? Math.round(100 * bad / total) : 0;
+  el.hidden = false;
+  el.textContent = `${bad} of ${total} lines from the device arrived damaged (${pct}%) and were ignored. ` + (state.link.kind === 'USB'
+    ? 'Try another USB cable or port. If it keeps happening, set usbSpeed to 2 in the wearable\'s settings and choose 9600 under Tools here.'
+    : 'Bring the phone closer to the wearable.');
 }
 // A countdown bar: a progressbar with a spoken value, red under 10%
 function setMeter(meter, fill, pct, text) {
@@ -1022,6 +1057,9 @@ function init() {
   $('btnSunscreenNow').addEventListener('click', startAppTimer);
   $('btnTimerStop').addEventListener('click', stopAppTimer);
   $('btnReconnect').addEventListener('click', reconnectLast);
+  $('usbBaud').value = String(state.settings.usbBaud || 115200);
+  $('usbBaud').addEventListener('change', e => { state.settings.usbBaud = parseInt(e.target.value, 10); saveSettings(); if (state.link && state.link.kind === 'USB') toast('Reconnect USB for the new speed to apply'); });
+  $('volume').addEventListener('change', e => send(`vol=${e.target.value}`));
   window.addEventListener('error', e => { pushConsole('!! ' + e.message); toast('Something went wrong on this page: ' + e.message); });
   window.addEventListener('unhandledrejection', e => { const m = e.reason && e.reason.message ? e.reason.message : String(e.reason); pushConsole('!! ' + m); });
 
