@@ -5,7 +5,7 @@
    state & storage · rendering · charts · wiring up
    =================================================================== */
 
-const APP_VERSION = '2.2';
+const APP_VERSION = '2.3';
 const TIMER_MS = 2 * 3600000;   // the reapply timer of the flowchart
 
 // ---------- protocol ----------
@@ -383,7 +383,12 @@ function stripChecksum(line) { const i = line.lastIndexOf(';ck='); return i < 0 
 function withChecksum(line) { let sum = 0; for (let k = 0; k < line.length; k++) sum = (sum + line.charCodeAt(k)) % 256; return `${line};ck=${sum}`; }
 function handleLine(raw) {
   state.linesTotal++;
-  if (!checksumOk(raw)) { state.damaged++; pushConsole('damaged  ' + raw); renderLinkHealth(); return; }
+  if (!checksumOk(raw)) {
+    state.damaged++; pushConsole('damaged  ' + raw);
+    // a damaged status line can still tell us the state word when that part is intact (the numbers are not trusted)
+    if (raw.startsWith('st=')) { const st = raw.slice(3, raw.indexOf(';') > 0 ? raw.indexOf(';') : undefined); if (STEPS[st] && state.device.status) { state.device.status.st = st; state.device.statusAt = Date.now(); renderDevice(); renderTimer(); } }
+    renderLinkHealth(); return;
+  }
   const line = stripChecksum(raw);
   pushConsole('< ' + line);
   if (line.startsWith('st=')) {
@@ -720,7 +725,9 @@ function renderLinkHealth() {
   const pct = total ? Math.round(100 * bad / total) : 0;
   el.hidden = false;
   el.textContent = `${bad} of ${total} lines from the device arrived damaged (${pct}%) and were ignored. ` + (state.link.kind === 'USB'
-    ? 'Try another USB cable or port. If it keeps happening, set usbSpeed to 2 in the wearable\'s settings and choose 9600 under Tools here.'
+    ? (pct >= 30
+      ? 'Most likely the MakeCode editor is still connected to the micro:bit in another tab: close that tab (or press Disconnect there), unplug and replug the micro:bit, then connect here again. Otherwise try another USB cable or port, or set usbSpeed to 2 in the wearable\'s settings and choose 9600 under Tools here. Bluetooth from a phone does not have this problem.'
+      : 'Try another USB cable or port. If it keeps happening, set usbSpeed to 2 in the wearable\'s settings and choose 9600 under Tools here.')
     : 'Bring the phone closer to the wearable.');
 }
 // A countdown bar: a progressbar with a spoken value, red under 10%
