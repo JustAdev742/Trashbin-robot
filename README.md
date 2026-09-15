@@ -107,7 +107,7 @@ The big pads P0, P1, P2, 3V and GND are the same as the rings on the micro:bit i
 | `waitMinutes`, `reapplyHours`, `tapMaxMinutes` | the flowchart timings: 5 minutes, 2 hours, 2 minutes |
 | `alertGiveUpMinutes` | how long a flash-and-beep alert carries on with no answer before the device assumes it is not being worn and goes to standby |
 | `onlineUvMaxAgeMinutes` | how long a value from the phone counts as "the phone is sending online UV" |
-| `usbSpeed` | 1 = 115200 (normal), 2 = 9600: use 2 if the app says lines arrive damaged over USB, and choose 9600 in the app's Tools too |
+| `usbSpeed` | 1 = 115200 (normal), 2 = 9600: use 2 if the app says lines arrive damaged over USB, and choose 9600 in the app's Tools too. Before that, close the MakeCode editor tab: while it stays connected to the micro:bit over WebUSB, the USB serial link drops bytes |
 
 Cheap UV sensors are only roughly calibrated. Once it is wired up, look up today's UV index on a weather site, hold the sensor in the sun and send `cal=<that number>` (see section 5 of this file); the scale corrects itself. Send `zero` in the dark first if the reading is not 0 indoors. Do this on the batteries you will actually wear: on 2×AAA the micro:bit's analog reference is about 3.0 V instead of the 3.3 V it has on USB, which shifts every reading by roughly 10%. Calibration lives in RAM, so put the corrected numbers into `applySensorPreset` to make them permanent. The app's **Calibrate sensor to live UV** button does the `cal=` step for you.
 
@@ -219,6 +219,8 @@ Leave P1 unconnected: the reading is noisy, so you will see the **CHECK SENSOR**
 | `.github/workflows/pages.yml` | Publishes the repository to GitHub Pages (works whether the Pages source is a branch or GitHub Actions) |
 
 ## 9. What changed
+
+**App 2.3** — damaged USB lines still update the state word when it is intact; the damaged-lines note names the usual cause (the MakeCode tab still connected over WebUSB).
 
 **3.3** — show mode (hold A at switch-on, or `demo=2`): pretend UV values through every band, alerts and standby that answer themselves, so the wearable performs the flowchart with no sun; the screen is looked for on both I2C addresses and any screen that answers is used, plus a `screen=1` command; during CHECK SENSOR, A shows the pin voltage and B retries. **App 2.2** — expo mode; Show mode and Find the screen buttons; the status refreshes straight after a mode change.
 
