@@ -80,7 +80,7 @@
     <text x="600" y="664">OLED, if you have one: SDA to pin 20, SCL to pin 19, VCC to 3V, GND to GND.</text>
     <text x="600" y="688">Buzzer, only if soundOutput = 2: + to P0, - to GND. A V2 has its own speaker.</text>
     <text x="600" y="720" fill="#57534e" font-size="13">Every GND is the same GND; every 3V is the same 3V.</text>
-    <text x="600" y="742" fill="#57534e" font-size="13">In the program: readUvSensor (P1), servoAngle (P2), setupSound (P0), oledCommand (19, 20).</text>
+    <text x="600" y="742" fill="#57534e" font-size="13">In the program: readUvSensor P1, servoAngle P2, setupSound P0, oledCommand 19 and 20.</text>
   </g>
   <g font-size="13" fill="#57534e">
     <text x="40" y="800">If the device shows a cross and CHECK SENSOR, the wire on P1 is the one to look at: the app says what voltage the pin sees.</text>
